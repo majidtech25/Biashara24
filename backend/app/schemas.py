@@ -97,6 +97,7 @@ class CarWashCreate(BaseModel):
     service_id: int | None = None
     vehicle_type: str | None = None
     mpesa_reference: str | None = None
+    attendant_id: int | None = None
     @field_validator("vehicle_plate")
     @classmethod
     def normalize_plate(cls, value: str): return " ".join(value.upper().split())
@@ -117,6 +118,31 @@ class WashServiceCreate(BaseModel):
     price: MoneyIn = Field(gt=0)
     duration_minutes: int = Field(default=30, gt=0)
     is_active: bool = True
+
+class BayUpdate(BaseModel):
+    bay_number: int | None = Field(default=None, gt=0)
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    is_active: bool | None = None
+
+class WashServiceUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = None
+    price: MoneyIn | None = Field(default=None, gt=0)
+    duration_minutes: int | None = Field(default=None, gt=0)
+    is_active: bool | None = None
+
+class AttendantCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    phone: str | None = Field(default=None, max_length=30)
+
+class AttendantUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    phone: str | None = Field(default=None, max_length=30)
+    is_active: bool | None = None
+
+class WashProgress(BaseModel):
+    status: Literal["washing", "done"]
+    attendant_id: int | None = None
 
 class TableCreate(BaseModel):
     number: int = Field(gt=0, le=9999)

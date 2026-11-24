@@ -12,6 +12,7 @@ import BillManagement from './BillManagement';
 import ManagerDashboard from './ManagerDashboard';
 import OrderBoard from './OrderBoard';
 import Branches,{BranchMenuPage} from './Branches';
+import {BayBoard,Attendants} from './CarwashBoard';
 import PreviewWorkspace,{previewModules} from './PreviewWorkspace';
 import {KitchenOperations,LiveNotifications,Recipes,Suppliers,StockDocuments,CashOffice,Refunds,BusinessSettings,PrinterRecovery} from './RestaurantOperations';
 
@@ -19,6 +20,8 @@ export default function RolePage({id}){
  const {user}=useAuth();const location=useLocation();
  if(id==='branches')return <Branches/>;
  if(id==='branch-menu')return <BranchMenuPage/>;
+ if(id==='active-bays')return <BayBoard/>;
+ if(id==='attendants')return <Attendants/>;
  if(['kitchen','food-pickup'].includes(id))return <KitchenOperations/>;
  if(['notifications','manager-notifications'].includes(id))return <LiveNotifications/>;
  if(id==='recipes')return <Recipes/>;
@@ -39,7 +42,7 @@ export default function RolePage({id}){
  if(user.role==='cashier'&&['payments','payment-ledger','cash-payment','mpesa','receipts'].includes(id))return <CashierPayments key={id} page={id}/>;
  if(['payments','manager-payments','payment-ledger','cash-payment','mpesa','receipts'].includes(id))return <Payments page={id}/>;
  if(['inventory','store-overview','ingredients','receive-stock','adjustments','low-stock','inventory-reports','stock-history'].includes(id))return <Inventory page={id} historyOnly={id==='stock-history'}/>;
- if(['car-wash','wash-overview','new-wash','wash-payments','cashier-carwash','wash-history','pending-wash-payments','wash-summary','wash-reports','active-bays'].includes(id))return <Carwash page={id}/>;
+ if(['car-wash','wash-overview','new-wash','wash-payments','cashier-carwash','wash-history','pending-wash-payments','wash-summary','wash-reports'].includes(id))return <Carwash page={id}/>;
  if(['reports','manager-reports'].includes(id))return <Reports/>;
  const config={menu:['menu','Menu Management'],management:['users','Staff accounts'],staff:['users','Staff Management'],departments:['departments','Departments'],categories:['categories','Categories'],printers:['printers','Printer Management'],'bay-config':['bays','Wash Bays'],'service-types':['services','Wash Services'],audit:['audits','Audit History']}[id];
  if(config)return <Configuration resource={config[0]} title={config[1]}/>;

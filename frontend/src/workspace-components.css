@@ -19,3 +19,8 @@
 .preview-line{border:1px solid var(--border);border-radius:8px;padding:12px;margin:10px 0}.notification-row{display:flex;justify-content:space-between;gap:12px;padding:16px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--border);background:#fff}.notification-row:hover{background:var(--surface-2)}.notification-row span{font-size:12px;color:var(--muted)}
 .food-photo-fallback{display:grid;place-items:center;background:#e9f3e1;color:#547344}.food-photo-fallback svg{width:30px;height:30px}
 .revenue-bars{display:flex;gap:10px;align-items:end;margin:20px 0;padding:10px;overflow-x:auto}.revenue-bars>div{flex:1;min-width:54px;text-align:center}.revenue-bars span,.revenue-bars small{display:block;font-size:10px;color:var(--muted)}.revenue-bar-track{height:120px;display:flex;align-items:end;justify-content:center;margin:6px 0}.revenue-bar-track i{display:block;width:70%;max-width:45px;background:linear-gradient(#a3cf85,#cde8b6);border-radius:5px 5px 0 0}
+.bay-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:12px}
+.bay-card{border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;display:flex;flex-direction:column;gap:8px}
+.bay-card-title{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.bay-card-title span{color:#5c6b5a;font-size:13px}
+.bay-card dl{margin:0;display:grid;gap:4px;font-size:13px}.bay-card dl div{display:flex;justify-content:space-between;gap:8px}.bay-card dt{color:#5c6b5a}.bay-card dd{margin:0;text-align:right}
+.bay-status{margin:0;font-weight:600;font-size:13px}.bay-free{border-left:5px solid #9bbd87}.bay-waiting{border-left:5px solid #e0b04a}.bay-washing{border-left:5px solid #4a8be0}

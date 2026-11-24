@@ -44,3 +44,18 @@ class CarWashTransaction(BranchScoped, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     shift_id: Mapped[int | None] = mapped_column(ForeignKey('cash_shifts.id'))
     service_name_at_time: Mapped[str | None] = mapped_column(String(100))
+    # The wash itself, separate from payment: waiting -> washing -> done.
+    wash_status: Mapped[str] = mapped_column(String(20), default="waiting", index=True)
+    attendant_id: Mapped[int | None] = mapped_column(ForeignKey("carwash_attendants.id"), index=True)
+    wash_started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    wash_finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class CarWashAttendant(BranchScoped, Base):
+    """A person who washes cars at a branch. Attendants do not sign in."""
+    __tablename__ = "carwash_attendants"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    phone: Mapped[str | None] = mapped_column(String(30))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

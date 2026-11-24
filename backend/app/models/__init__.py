@@ -5,7 +5,7 @@ from .payment import Payment
 from .transaction import WriteSubmission, ExternalReceipt
 from .operations import Recipe, StockReservation, KitchenLine, FoodWaste, Notification, Supplier, StockDocument, CashShift, TillMovement, Refund, BusinessSettings
 from .stock import Ingredient, StockTransaction
-from .carwash import CarWashTransaction, CarWashBay, CarWashService
+from .carwash import CarWashTransaction, CarWashBay, CarWashService, CarWashAttendant
 from .dashboard import DailySummary, AuditLog
 from .waiter import DiningTable, TableReservation, OrderBatch, BillSubmission, BillChangeRequest
 
