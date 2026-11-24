@@ -1,7 +1,8 @@
+from decimal import Decimal
 from datetime import datetime
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from ..database import Base
+from ..database import Money, Base
 from .user import now
 
 class Payment(Base):
@@ -9,7 +10,7 @@ class Payment(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
     active_order_id: Mapped[int | None] = mapped_column(Integer, unique=True)
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Money)
     method: Mapped[str] = mapped_column(String(20), index=True)
     status: Mapped[str] = mapped_column(String(20), default="completed", index=True)
     notes: Mapped[str | None] = mapped_column(String(500))
@@ -23,8 +24,8 @@ class Payment(Base):
     receipt_snapshot: Mapped[dict | None] = mapped_column(JSON)
     shift_id: Mapped[int | None] = mapped_column(ForeignKey('cash_shifts.id'))
     recorded_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
-    tendered_amount: Mapped[float | None] = mapped_column(Float)
-    change_amount: Mapped[float | None] = mapped_column(Float)
+    tendered_amount: Mapped[Decimal | None] = mapped_column(Money)
+    change_amount: Mapped[Decimal | None] = mapped_column(Money)
     order: Mapped["Order"] = relationship()
 
 from .order import Order

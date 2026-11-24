@@ -78,7 +78,7 @@ def test_manual_cashless_confirmation_and_totals(client):
     after=c.get("/api/payments/daily-summary",headers=h).json()
     assert after["mpesa_count"]==before["mpesa_count"]+1
     assert after["mpesa_total"]==before["mpesa_total"]+320
-    assert after["total_revenue"]==after["cash_total"]+after["mpesa_total"]
+    assert after["total_revenue"]==round(after["cash_total"]+after["mpesa_total"],2)
     assert c.post(f'/api/orders/{o["id"]}/clear',headers=h,json={"expected_version":o["version"],"amount":320,"method":"cash"}).status_code==409
     assert c.delete(f'/api/orders/{o["id"]}',headers=h).status_code==409
     with SessionLocal() as db:

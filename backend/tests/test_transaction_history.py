@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from app.main import app
 from app.migrations import upgrade
+from app.legacy_migrations import legacy_upgrade
 from test_integration import login, new_menu, new_table
 
 
@@ -98,7 +99,7 @@ def test_menu_rename_preserves_bill_and_correction_destination():
 def test_snapshot_upgrade_recovers_only_recorded_history(tmp_path):
     import json
     engine = create_engine('sqlite:///' + str(tmp_path / 'history.db'))
-    upgrade(engine)
+    legacy_upgrade(engine)  # a database created before Alembic
     with engine.begin() as db:
         db.execute(text('DELETE FROM schema_versions WHERE version=4'))
         db.execute(text("INSERT INTO order_items (id,order_id,menu_item_id,quantity,voided_quantity,price_at_time,ready,created_at) VALUES (101,1,1,1,0,116,0,CURRENT_TIMESTAMP),(102,1,1,1,0,116,0,CURRENT_TIMESTAMP)"))

@@ -81,7 +81,7 @@ Use a supervised service and an HTTPS reverse proxy for hosted access; serve fro
 
 - No production deployment, physical printer test, staff training or realistic multi-user load test has been performed.
 - Suppliers, recipe-based stock deduction, purchase orders, multi-branch management, staff scheduling, notifications and reconciliation are outside the implemented core workflows. Their old placeholder pages now explicitly say they are unavailable instead of pretending to save data.
-- Legacy money columns remain floating point for compatibility with existing databases. A future reviewed migration to decimal or integer minor units is recommended before expanding financial/accounting functionality.
+- Money columns are exact NUMERIC(14, 2) since Alembic revision 0002_exact_money (see backend/README.md). Ingredient quantities and unit costs remain floating point.
 - Timestamps remain UTC in storage; business-day reporting converts BUSINESS_TIMEZONE (Africa/Nairobi by default) to UTC boundaries. Set this to the business location.
 - Daily summary storage is available, but live reports are authoritative; scheduled historical stock snapshots are not implemented.
 - Printer byte delivery and failure paths are tested with a mocked socket. No automatic cashless provider verification exists, as requested.

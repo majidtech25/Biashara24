@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import Field
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
-from ..schemas import BaseModel
+from ..schemas import BaseModel, MoneyIn
 from ..database import get_db
 from ..middleware.auth import require_roles
 from ..models import CashShift, TillMovement, Refund, Payment
@@ -19,21 +19,21 @@ supervisor = require_roles('manager', 'director')
 
 
 class OpenShift(BaseModel):
-    opening_float: float = Field(ge=0, multiple_of=0.01)
+    opening_float: MoneyIn = Field(ge=0)
 
 
 class CloseShift(BaseModel):
-    counted_cash: float = Field(ge=0, multiple_of=0.01)
+    counted_cash: MoneyIn = Field(ge=0)
     reason: str = Field(default='', max_length=500)
 
 
 class Movement(BaseModel):
-    amount: float = Field(multiple_of=0.01)
+    amount: MoneyIn
     reason: str = Field(min_length=3, max_length=500)
 
 
 class RefundInput(BaseModel):
-    amount: float = Field(gt=0, multiple_of=0.01)
+    amount: MoneyIn = Field(gt=0)
     reason: str = Field(min_length=3, max_length=500)
     shift_id: int | None = None
     reference: str | None = Field(default=None, max_length=100)

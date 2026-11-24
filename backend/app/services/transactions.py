@@ -1,5 +1,6 @@
 import hashlib
 import json
+from ..database import _json_default
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select, func
@@ -9,7 +10,7 @@ from ..models import WriteSubmission, ExternalReceipt, Payment, CarWashTransacti
 def begin_submission(db, user, key, operation, payload):
     if key is None:
         return None, None  # Compatibility for older clients; new clients supply a key.
-    fingerprint = hashlib.sha256(json.dumps({'operation': operation, 'payload': payload}, sort_keys=True).encode()).hexdigest()
+    fingerprint = hashlib.sha256(json.dumps({'operation': operation, 'payload': payload}, sort_keys=True, default=_json_default).encode()).hexdigest()
     previous = db.scalar(select(WriteSubmission).where(WriteSubmission.user_id == user.id, WriteSubmission.key == key))
     if previous:
         if previous.fingerprint != fingerprint:

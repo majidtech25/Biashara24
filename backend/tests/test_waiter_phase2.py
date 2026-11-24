@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 from unittest.mock import MagicMock
+from decimal import Decimal
 import pytest
 from sqlalchemy import select, text, create_engine
 from sqlalchemy.exc import IntegrityError
@@ -66,7 +67,7 @@ def test_submission_price_snapshots_and_payment_lock(workspace):
     assert add(w,closed).status_code==409 and change(w,closed).status_code==409
     assert not next(x for x in c.get("/api/tables",headers=h).json() if x["id"]==t)["occupied"]
     with SessionLocal() as db:
-        assert db.get(Order,o["id"]).total==54.95
+        assert db.get(Order,o["id"]).total==Decimal("54.95")
         assert len(db.scalars(select(OrderBatch).where(OrderBatch.order_id==o["id"])).all())==2
 
 def test_waiter_ownership_and_table_privacy(workspace):

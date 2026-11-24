@@ -37,6 +37,41 @@ Account passwords can be updated through `PUT /api/admin/users/{id}`. Existing a
 - CORS permits the Vite and Live Server origins configured in `.env`.
 - SQLite works by default. Set `DATABASE_URL=postgresql+psycopg://user:pass@host/db` for PostgreSQL.
 
-Run tests with `pytest -q`.
+Run tests with `pytest -q`. To run the same suite on PostgreSQL, point it at a disposable
+database (every table in it is dropped first):
+
+```bash
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost/biashara_test pytest -q
+```
+
+## Money
+
+Amounts (prices, totals, payments, shifts, refunds, daily summaries) are stored as exact
+`NUMERIC(14, 2)` values and handled as Python `Decimal`, rounded half-up to cents
+(`app.database.Money`). API responses still return plain JSON numbers. Request amounts with
+more than two decimal places are rejected with 422. Ingredient quantities and unit costs
+remain floating point.
+
+## Database upgrades
+
+Startup brings the database up to date automatically (`app/migrations.py`):
+
+- an empty database is created from the models and marked current;
+- a database from before Alembic runs the frozen legacy steps (`app/legacy_migrations.py`),
+  then the Alembic revisions;
+- SQLite files get a backup next to the database before any change.
+
+New schema changes are Alembic revisions in `alembic_migrations/versions`, written with
+`alembic revision -m "describe the change"` from `backend/`. Check `alembic current` to see a
+database's revision. `/ready` returns 503 until the schema is at the newest revision.
+
+## Sign-in protection
+
+- Five failed sign-ins for one email from one address within 15 minutes block further
+  attempts for that pair until the window passes (HTTP 429). The counter is kept in server
+  memory, so it is per process and resets on restart.
+- With `ENVIRONMENT=production`, startup deactivates any initial account (director@gmail.com
+  and the others below) that still has its default password. Create a real director with
+  `python -m app.ops create-admin` before going live.
 
 See [integration and operations handover](../INTEGRATION_HANDOVER.md) for migrations, manual cashless confirmation, printer setup, backups and production configuration.

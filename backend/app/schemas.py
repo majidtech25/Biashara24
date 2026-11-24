@@ -1,9 +1,13 @@
 ﻿from datetime import date, datetime
-from typing import Literal
+from decimal import Decimal
+from typing import Annotated, Literal
 from pydantic import BaseModel as PydanticBaseModel, ConfigDict, Field, AliasChoices, field_validator
 
 class BaseModel(PydanticBaseModel):
     model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True, populate_by_name=True)
+
+# Currency input: exact shillings with at most two decimal places.
+MoneyIn = Annotated[Decimal, Field(max_digits=14, decimal_places=2)]
 
 Role = Literal["waiter", "cashier", "manager", "director", "store_manager", "carwash_manager", "kitchen"]
 PaymentMethod = Literal["cash", "m-pesa"]
@@ -46,9 +50,9 @@ class MenuImageUpload(BaseModel):
     data: str = Field(max_length=2800000)
 
 class MenuCreate(MenuDetails):
-    name: str = Field(min_length=1); price: float = Field(gt=0, multiple_of=0.01); category_id: int; department_id: int; active: bool = True
+    name: str = Field(min_length=1); price: MoneyIn = Field(gt=0); category_id: int; department_id: int; active: bool = True
 class MenuUpdate(MenuDetails):
-    name: str | None = Field(default=None, min_length=1); price: float | None = Field(default=None, gt=0, multiple_of=0.01)
+    name: str | None = Field(default=None, min_length=1); price: MoneyIn | None = Field(default=None, gt=0)
     category_id: int | None = None; department_id: int | None = None; active: bool | None = None
 class CategoryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
@@ -69,10 +73,10 @@ class OrderCreate(BaseModel):
 class OrderUpdate(BaseModel):
     status: Literal["pending", "printed", "ready", "payment_pending", "cleared", "completed"] = Field(validation_alias=AliasChoices("status", "new_status"))
 class PaymentCreate(BaseModel):
-    tendered_amount: float | None = Field(default=None, ge=0, multiple_of=0.01)
+    tendered_amount: MoneyIn | None = Field(default=None, ge=0)
     expected_version: int | None = Field(default=None, ge=1)
     method: PaymentMethod
-    amount: float = Field(gt=0, multiple_of=0.01)
+    amount: MoneyIn = Field(gt=0)
     reference: str | None = Field(default=None, validation_alias=AliasChoices("reference", "reference_number"))
     notes: str | None = None
 
@@ -85,7 +89,7 @@ class StockChange(BaseModel): ingredient_id: int; quantity: float = Field(ge=0);
 
 class CarWashCreate(BaseModel):
     vehicle_plate: str = Field(min_length=3, max_length=20)
-    payment_method: PaymentMethod; amount: float = Field(gt=0, multiple_of=0.01); notes: str | None = None
+    payment_method: PaymentMethod; amount: MoneyIn = Field(gt=0); notes: str | None = None
     payment_status: Literal["pending", "completed"] = "completed"
     bay_id: int | None = None
     service_id: int | None = None
@@ -108,7 +112,7 @@ class BayCreate(BaseModel):
 class WashServiceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: str | None = None
-    price: float = Field(gt=0, multiple_of=0.01)
+    price: MoneyIn = Field(gt=0)
     duration_minutes: int = Field(default=30, gt=0)
     is_active: bool = True
 
