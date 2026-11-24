@@ -11,8 +11,8 @@ def validate_range(start, end):
 def revenue(db, start, end):
     pay = dict(db.execute(select(Payment.method, func.sum(Payment.amount)).where(
         Payment.status == "completed", Payment.completed_at >= start, Payment.completed_at < end).group_by(Payment.method)).all())
-    refunded = dict(db.execute(select(Payment.method, func.sum(Refund.amount)).join(Refund, Refund.payment_id == Payment.id).where(
-        Refund.created_at >= start, Refund.created_at < end).group_by(Payment.method)).all())
+    refunded = {method: float(total or 0) for method, total in db.execute(select(Payment.method, func.sum(Refund.amount)).join(Refund, Refund.payment_id == Payment.id).where(
+        Refund.created_at >= start, Refund.created_at < end).group_by(Payment.method)).all()}
     wash = dict(db.execute(select(CarWashTransaction.payment_method, func.sum(CarWashTransaction.amount)).where(
         CarWashTransaction.payment_status == "completed", CarWashTransaction.completed_at >= start,
         CarWashTransaction.completed_at < end).group_by(CarWashTransaction.payment_method)).all())

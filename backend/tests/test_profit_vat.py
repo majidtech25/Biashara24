@@ -46,6 +46,9 @@ def test_profit_and_vat_for_a_sold_dish():
         post(c, f"/api/stock/documents/{waste['id']}/post", director, {})
 
         after = report(c, director)
+        # Daily reports and the dashboard still work after a refund (they used to fail with a type error).
+        assert c.get('/api/reports/daily', headers=director).status_code == 200
+        assert c.get('/api/dashboard', headers=director).status_code == 200
         delta = lambda section, key: round(after[section][key] - before[section][key], 2)
         assert delta('restaurant', 'sales_gross') == 1160
         assert delta('restaurant', 'sales_vat') == 160

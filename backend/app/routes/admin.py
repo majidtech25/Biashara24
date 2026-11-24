@@ -3,9 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..middleware.auth import hash_password,require_roles
-from ..models import Branch,Category,Department,MenuItem,User,AuditLog
+from ..models import Branch,BranchPrinter,Category,Department,MenuItem,User,AuditLog
 from ..branching import require_branch,scope
-from ..schemas import CategoryCreate,DepartmentCreate,MenuCreate,MenuUpdate,PrinterConfig,UserCreate,UserUpdate
+from ..schemas import BranchPrinterIn,CategoryCreate,DepartmentCreate,MenuCreate,MenuUpdate,PrinterConfig,UserCreate,UserUpdate
 from ..utils.helpers import menu_dict,user_dict
 from ..services.audit import record
 from ..services.bill_lock import start_write
@@ -132,3 +132,41 @@ def printer(data:PrinterConfig,db:Session=Depends(get_db),actor=Depends(manager)
     before={'printer_ip':x.printer_ip,'printer_port':x.printer_port}
     x.printer_ip=data.printer_ip;x.printer_port=data.printer_port;save_config(db,actor,x,'printers',before);return {"department_id":x.id,"name":x.name,"printer_ip":x.printer_ip,"printer_port":x.printer_port}
 
+
+
+def branch_printer_dict(db,row):
+    branch,department=db.get(Branch,row.branch_id),db.get(Department,row.department_id)
+    return {"id":row.id,"branch_id":row.branch_id,"branch":branch.name if branch else None,"department_id":row.department_id,
+            "department":department.name if department else None,"printer_ip":row.printer_ip,"printer_port":row.printer_port}
+
+@router.get("/branch-printers")
+def branch_printers(db:Session=Depends(get_db),_=Depends(manager)):
+    """Printers set for one branch. A department without one here uses its own printer."""
+    return [branch_printer_dict(db,r) for r in db.scalars(select(BranchPrinter).order_by(BranchPrinter.branch_id,BranchPrinter.department_id)).all()]
+
+@router.put("/branch-printers")
+def set_branch_printer(data:BranchPrinterIn,db:Session=Depends(get_db),actor=Depends(manager)):
+    start_write(db)
+    branch,department=db.get(Branch,data.branch_id),db.get(Department,data.department_id)
+    if not branch or not department:raise HTTPException(404,"Branch or department not found")
+    current=scope(db)
+    if isinstance(current,int) and current!=branch.id:raise HTTPException(403,"You can only set printers for your own branch.")
+    row=db.scalar(select(BranchPrinter).where(BranchPrinter.branch_id==branch.id,BranchPrinter.department_id==department.id))
+    before=branch_printer_dict(db,row) if row else None
+    if row is None:
+        row=BranchPrinter(branch_id=branch.id,department_id=department.id,printer_ip=data.printer_ip,printer_port=data.printer_port);db.add(row)
+    else:
+        row.printer_ip,row.printer_port=data.printer_ip,data.printer_port
+    db.flush();after=branch_printer_dict(db,row)
+    record(db,actor,"update" if before else "create","branch_printers",row.id,before=before,after=after);db.commit()
+    return after
+
+@router.delete("/branch-printers/{identity}",status_code=204)
+def remove_branch_printer(identity:int,db:Session=Depends(get_db),actor=Depends(manager)):
+    start_write(db)
+    row=db.get(BranchPrinter,identity)
+    if not row:raise HTTPException(404,"Printer setting not found")
+    current=scope(db)
+    if isinstance(current,int) and current!=row.branch_id:raise HTTPException(403,"You can only change printers for your own branch.")
+    record(db,actor,"remove","branch_printers",row.id,before=branch_printer_dict(db,row))
+    db.delete(row);db.commit()

@@ -128,6 +128,24 @@ class PrinterConfig(BaseModel):
     printer_ip: str
     printer_port: int = Field(default=9100, ge=1, le=65535)
 
+class BranchPrinterIn(BaseModel):
+    branch_id: int = Field(gt=0)
+    department_id: int = Field(gt=0)
+    printer_ip: str = Field(min_length=7, max_length=80)
+    printer_port: int = Field(default=9100, ge=1, le=65535)
+
+    @field_validator("printer_ip")
+    @classmethod
+    def lan_address(cls, value):
+        import ipaddress
+        try:
+            address = ipaddress.ip_address(value.strip())
+        except ValueError:
+            raise ValueError("Enter the printer's IP address, e.g. 192.168.1.50.") from None
+        if not address.is_private or address.is_loopback or address.is_unspecified:
+            raise ValueError("The printer must have a local network (LAN) address.")
+        return str(address)
+
 class BayCreate(BaseModel):
     bay_number: int = Field(gt=0)
     name: str = Field(min_length=1, max_length=80)

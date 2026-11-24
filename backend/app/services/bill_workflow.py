@@ -31,8 +31,9 @@ def batch(db, order, user, kind, entries, notes=None):
     deliveries = []
     for identity in sorted({i["department_id"] for i in entries}):
         department = db.get(Department, identity)
+        from .printers_services import printer_for
         deliveries.append({"department_id":identity, "department":department.name,
-                           "status":"not_configured" if not department.printer_ip else "queued"})
+                           "status":"queued" if printer_for(db, department, order.branch_id) else "not_configured"})
     result = OrderBatch(order_id=order.id, kind=kind, items=entries, notes=notes, created_by=user.id,
                         deliveries=deliveries)
     db.add(result); db.flush()
@@ -164,7 +165,7 @@ def decide(db,user,identity,data):
 
 def deliver(db,order,submission):
     if not submission: return
-    from .printers_services import send_batch_ticket
+    from .printers_services import send_batch_ticket, printer_for
     # Claim every destination before network I/O. Replays never call this function.
     for index, delivery in enumerate(submission.deliveries):
         if delivery["status"]!="queued": continue
@@ -173,7 +174,8 @@ def deliver(db,order,submission):
         department=db.get(Department,delivery["department_id"])
         table=db.get(DiningTable,order.table_id) if order.table_id else None
         entries=[i for i in submission.items if i["department_id"]==department.id]
-        result=send_batch_ticket(department,order,submission,entries,table.number if table else None)
+        result=send_batch_ticket(department,order,submission,entries,table.number if table else None,
+                                 printer_for(db,department,order.branch_id))
         states=[dict(d) for d in submission.deliveries];states[index].update(result)
         submission.deliveries=states;db.commit()
 

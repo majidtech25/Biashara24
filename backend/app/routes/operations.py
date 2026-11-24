@@ -385,7 +385,10 @@ def retry_printer(identity: int, data: PrinterRetry, db: Session = Depends(get_d
     index = next((i for i, d in enumerate(deliveries) if d['department_id'] == data.department_id), None)
     if index is None: raise HTTPException(404, 'Department is not on this ticket')
     department = db.get(Department, data.department_id)
-    if not department or not department.printer_ip: raise HTTPException(409, 'Configure the department printer first.')
+    from ..services.printers_services import printer_for
+    order = db.get(Order, batch.order_id)
+    target = printer_for(db, department, order.branch_id) if department else None
+    if not target: raise HTTPException(409, 'Configure the department printer first.')
     before = dict(deliveries[index])
     deliveries[index] = {**before, 'status': 'uncertain', 'last_retry_key': idempotency_key, 'retry_reason': data.reason}
     batch.deliveries = deliveries
@@ -393,9 +396,8 @@ def retry_printer(identity: int, data: PrinterRetry, db: Session = Depends(get_d
     response = {'id': batch.id, 'department_id': data.department_id, 'status': 'uncertain'}
     finish_submission(submission, response)
     db.commit()  # Durable claim BEFORE network I/O; replay never reprints.
-    order = db.get(Order, batch.order_id)
     table = db.get(DiningTable, order.table_id) if order.table_id else None
-    result = send_batch_ticket(department, order, batch, [i for i in batch.items if i['department_id'] == department.id], table.number if table else None)
+    result = send_batch_ticket(department, order, batch, [i for i in batch.items if i['department_id'] == department.id], table.number if table else None, target)
     start_write(db)
     db.refresh(batch)
     deliveries = [dict(d) for d in batch.deliveries]

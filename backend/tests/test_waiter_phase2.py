@@ -238,10 +238,14 @@ def test_batch_printer_payload_and_network_failures(workspace,monkeypatch):
         ticket=connection.sendall.call_args.args[0].decode("cp437")
         assert "ADDITIONAL ITEMS" in ticket and "Table: 1" in ticket and "Waiter:" in ticket
         assert "1 x " in ticket and "3 x " not in ticket and submission.created_at.isoformat() in ticket
-        connect.side_effect=OSError("Partial delivery")
+        # Sending failed after the connection opened: part of the ticket may have printed.
+        connection.sendall.side_effect=OSError("Partial delivery")
         assert send_batch_ticket(department,order,submission,submission.items,1)["status"]=="uncertain"
+        # The printer could not be reached: nothing printed, so it is safe to try again.
+        connect.side_effect=OSError("No route to host")
+        assert send_batch_ticket(department,order,submission,submission.items,1)["status"]=="not_sent"
         department.printer_ip="127.0.0.1"
-        assert send_batch_ticket(department,order,submission,submission.items,1)["status"]=="uncertain"
+        assert send_batch_ticket(department,order,submission,submission.items,1)["status"]=="failed"
 
 def test_legacy_original_stays_visible_after_addition(workspace):
     w=workspace;c,m,h,other,item,t=w

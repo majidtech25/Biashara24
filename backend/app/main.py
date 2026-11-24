@@ -34,9 +34,32 @@ def seed():
         for name in ("Kitchen","Barista","Pastry"):
             if not db.scalar(select(Department).where(Department.name==name)):db.add(Department(name=name))
         db.commit()
+async def _retry_printing(every:int):
+    """Retry kitchen tickets whose printer was unreachable (never ones that may have printed)."""
+    import asyncio,logging
+    from .services.printers_services import retry_unsent
+    def once():
+        with SessionLocal() as db:
+            return retry_unsent(db)
+    while True:
+        await asyncio.sleep(every)
+        try:
+            await asyncio.to_thread(once)
+        except Exception:
+            logging.getLogger("biashara360.printers").exception("Background ticket retry failed")
+
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-    upgrade(engine);seed();yield
+    import asyncio,contextlib
+    upgrade(engine);seed()
+    every=get_settings().print_retry_seconds
+    task=asyncio.create_task(_retry_printing(every)) if every>0 else None
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):await task
 app=FastAPI(title=settings.app_name,version="1.0.0",description="Restaurant and car-wash POS API",lifespan=lifespan)
 
 @app.middleware("http")
