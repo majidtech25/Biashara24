@@ -1,7 +1,7 @@
 from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy import select, func
-from ..models import Ingredient, StockTransaction, Recipe, StockReservation, KitchenLine, FoodWaste
+from ..models import Ingredient, StockTransaction, Recipe, StockReservation, KitchenLine, FoodWaste, StockBatch
 from .audit import record
 
 
@@ -19,11 +19,25 @@ def move(db, user, ingredient, delta, reason, reference_type, reference_id):
     if after < 0 or after + 0.000001 < reserved(db, ingredient.id):
         raise HTTPException(409, f'Insufficient unreserved stock for {ingredient.name}.')
     ingredient.current_stock = after
+    if delta < 0:
+        use_batches(db, ingredient.id, -delta)
     db.add(StockTransaction(ingredient_id=ingredient.id, transaction_type='add' if delta >= 0 else 'deduction',
            quantity=abs(delta), quantity_before=before, quantity_after=after, reason=reason,
            reference_type=reference_type, reference_id=reference_id, performed_by=user.id,
            unit_cost=Decimal(str(ingredient.cost_per_unit or 0))))
     record(db, user, reference_type, 'stock', ingredient.id, before={'quantity': before}, after={'quantity': after, 'reference_id': reference_id})
+
+
+def use_batches(db, ingredient_id, amount):
+    """Stock taken out comes from the batch that expires first."""
+    left = quantity(amount)
+    for batch in db.scalars(select(StockBatch).where(StockBatch.ingredient_id == ingredient_id, StockBatch.remaining > 0)
+                            .order_by(StockBatch.expiry_date, StockBatch.id).with_for_update()).all():
+        if left <= 0:
+            break
+        taken = min(batch.remaining, left)
+        batch.remaining = quantity(batch.remaining - taken)
+        left = quantity(left - taken)
 
 
 def reserve_line(db, line):

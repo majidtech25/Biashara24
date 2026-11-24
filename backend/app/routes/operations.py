@@ -1,4 +1,6 @@
 """Persisted restaurant operations. All posting runs in one database transaction."""
+from datetime import date
+from decimal import Decimal
 from typing import Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select, func
@@ -160,14 +162,53 @@ def create_supplier(data: SupplierInput, db: Session = Depends(get_db), user=Dep
 class DocumentLine(BaseModel):
     ingredient_id: int = Field(gt=0)
     quantity: float = Field(ge=0, le=1000000)
+    pack: str | None = Field(default=None, max_length=40)  # entered in this pack instead of the stock unit
+    unit_cost: float | None = Field(default=None, ge=0, le=100000000)  # price per entered unit (deliveries)
+    expiry_date: date | None = None  # deliveries only
 
 
 class DocumentInput(BaseModel):
-    kind: Literal['receiving', 'count', 'wastage', 'purchase']
+    kind: Literal['receiving', 'count', 'wastage', 'purchase', 'return']
     supplier_id: int | None = None
     reference: str = Field(min_length=1, max_length=100)
     reason: str = Field(min_length=3, max_length=500)
     lines: list[DocumentLine] = Field(min_length=1, max_length=100)
+
+
+def stock_line(ingredient, item, kind):
+    """One document line in the ingredient's stock unit. Packs are converted, and the
+    entered figures are kept on the line so the document reads as it was typed."""
+    from ..services.production import quantity as exact
+    factor = Decimal(1)
+    if item.pack:
+        pack = next((p for p in ingredient.packs if p.name.lower() == item.pack.strip().lower()), None)
+        if not pack: raise HTTPException(400, f'{ingredient.name} has no pack called "{item.pack}".')
+        factor = Decimal(pack.factor)
+    if item.expiry_date and kind not in ('receiving', 'purchase'):
+        raise HTTPException(400, 'Expiry dates are recorded on deliveries only.')
+    if item.unit_cost is not None and kind not in ('receiving', 'purchase'):
+        raise HTTPException(400, 'Prices are recorded on deliveries and purchases only.')
+    line = {'ingredient_id': ingredient.id, 'quantity': exact(Decimal(str(item.quantity)) * factor),
+            'name': ingredient.name, 'unit': ingredient.unit}
+    if item.pack:
+        line |= {'pack': pack.name, 'pack_quantity': item.quantity, 'factor': float(factor)}
+    if item.unit_cost is not None:
+        line['unit_cost'] = float((Decimal(str(item.unit_cost)) / factor).quantize(Decimal('0.0001')))
+    if item.expiry_date:
+        line['expiry_date'] = item.expiry_date.isoformat()
+    return line
+
+
+def receive_line(db, user, ingredient, line, reason, document_id):
+    """Add delivered stock: update the ingredient's cost first, so the movement records it,
+    and keep a batch when the delivery has an expiry date."""
+    from ..models import StockBatch
+    if line.get('unit_cost') is not None:
+        ingredient.cost_per_unit = line['unit_cost']
+    move(db, user, ingredient, line['quantity'], reason, 'receiving', document_id)
+    if line.get('expiry_date') and line['quantity'] > 0:
+        db.add(StockBatch(ingredient_id=ingredient.id, document_id=document_id, quantity=line['quantity'],
+                          remaining=line['quantity'], expiry_date=date.fromisoformat(line['expiry_date'])))
 
 
 def document_out(row):
@@ -183,18 +224,19 @@ def documents(db: Session = Depends(get_db), _=Depends(stock_auth)):
 def draft_document(data: DocumentInput, db: Session = Depends(get_db), user=Depends(stock_auth),
                    idempotency_key: str = Header(..., min_length=8, max_length=100)):
     start_write(db)
-    submission, replay = begin_submission(db, user, idempotency_key, 'stock:document', data.model_dump())
+    submission, replay = begin_submission(db, user, idempotency_key, 'stock:document', data.model_dump(mode='json'))
     if replay is not None: return replay
     if len({i.ingredient_id for i in data.lines}) != len(data.lines): raise HTTPException(400, 'List each ingredient once.')
     if data.supplier_id:
         supplier = db.get(Supplier, data.supplier_id)
         if not supplier or not supplier.active: raise HTTPException(400, 'Select an active supplier.')
-    if data.kind == 'purchase' and not data.supplier_id: raise HTTPException(400, 'Select a supplier for this purchase order.')
+    if data.kind in ('purchase', 'return') and not data.supplier_id:
+        raise HTTPException(400, 'Select the supplier for this ' + ('purchase order.' if data.kind == 'purchase' else 'return.'))
     entries = []
     for item in sorted(data.lines, key=lambda x: x.ingredient_id):
         ingredient = db.scalar(select(Ingredient).where(Ingredient.id == item.ingredient_id).with_for_update())
         if not ingredient or not ingredient.is_active: raise HTTPException(400, 'Select active ingredients.')
-        entries.append(item.model_dump() | {'name': ingredient.name, 'unit': ingredient.unit, 'expected': ingredient.current_stock})
+        entries.append(stock_line(ingredient, item, data.kind) | {'expected': ingredient.current_stock})
     row = StockDocument(**data.model_dump(exclude={'lines'}), lines=entries, created_by=user.id)
     db.add(row); db.flush()
     record(db, user, 'draft', 'stock_documents', row.id, after={'kind': row.kind, 'reference': row.reference})
@@ -222,9 +264,12 @@ def post_document(identity: int, db: Session = Depends(get_db), user=Depends(sto
         ingredient = db.scalar(select(Ingredient).where(Ingredient.id == item['ingredient_id']).with_for_update())
         if row.kind == 'count' and ingredient.current_stock != item['expected']:
             raise HTTPException(409, 'Stock moved after the count started. Recount before posting.')
-        delta = item['quantity'] if row.kind == 'receiving' else -item['quantity'] if row.kind == 'wastage' else item['quantity'] - ingredient.current_stock
+        delta = item['quantity'] if row.kind == 'receiving' else -item['quantity'] if row.kind in ('wastage', 'return') else item['quantity'] - ingredient.current_stock
         before = ingredient.current_stock
-        move(db, user, ingredient, delta, row.reason, row.kind, row.id)
+        if row.kind == 'receiving':
+            receive_line(db, user, ingredient, item, row.reason, row.id)
+        else:
+            move(db, user, ingredient, delta, row.reason, row.kind, row.id)
         posted.append(item | {'before': before, 'after': ingredient.current_stock, 'delta': delta})
     row.lines = posted; row.status = 'posted'; row.posted_by = user.id; row.posted_at = now()
     record(db, user, 'post', 'stock_documents', row.id, after={'lines': posted})
@@ -232,16 +277,20 @@ def post_document(identity: int, db: Session = Depends(get_db), user=Depends(sto
     return document_out(row)
 
 
+class ReceivedLine(DocumentLine):
+    quantity: float = Field(gt=0, le=1000000)
+
+
 class ReceivePurchase(BaseModel):
     reference: str = Field(min_length=1, max_length=100)
-    lines: list[Component] = Field(min_length=1, max_length=100)
+    lines: list[ReceivedLine] = Field(min_length=1, max_length=100)
 
 
 @router.post('/stock/documents/{identity}/receive', status_code=201)
 def receive_purchase(identity: int, data: ReceivePurchase, db: Session = Depends(get_db), user=Depends(stock_auth),
                      idempotency_key: str = Header(..., min_length=8, max_length=100)):
     start_write(db)
-    submission, replay = begin_submission(db, user, idempotency_key, f'purchase:receive:{identity}', data.model_dump())
+    submission, replay = begin_submission(db, user, idempotency_key, f'purchase:receive:{identity}', data.model_dump(mode='json'))
     if replay is not None: return replay
     purchase = db.scalar(select(StockDocument).where(StockDocument.id == identity).with_for_update())
     if not purchase or purchase.kind != 'purchase': raise HTTPException(404, 'Purchase order not found')
@@ -256,15 +305,18 @@ def receive_purchase(identity: int, data: ReceivePurchase, db: Session = Depends
     updated = [dict(i) for i in purchase.lines]; received = []
     for item in sorted(data.lines, key=lambda i: i.ingredient_id):
         planned = next((i for i in updated if i['ingredient_id'] == item.ingredient_id), None)
-        if not planned or item.quantity > planned['quantity'] - planned.get('received', 0) + 0.000001:
-            raise HTTPException(409, 'Received quantity exceeds the outstanding purchase quantity.')
         ingredient = db.scalar(select(Ingredient).where(Ingredient.id == item.ingredient_id).with_for_update())
+        if not planned or not ingredient: raise HTTPException(409, 'Received quantity exceeds the outstanding purchase quantity.')
+        line = stock_line(ingredient, item, 'receiving')
+        if 'unit_cost' not in line and planned.get('unit_cost') is not None:
+            line['unit_cost'] = planned['unit_cost']  # the price agreed on the purchase order
+        if line['quantity'] > planned['quantity'] - planned.get('received', 0) + 0.000001:
+            raise HTTPException(409, 'Received quantity exceeds the outstanding purchase quantity.')
         before = ingredient.current_stock
-        move(db, user, ingredient, item.quantity, receipt.reason, 'receiving', receipt.id)
+        receive_line(db, user, ingredient, line, receipt.reason, receipt.id)
         from ..services.production import quantity
-        planned['received'] = quantity(planned.get('received', 0) + item.quantity)
-        received.append({'ingredient_id': ingredient.id, 'name': ingredient.name, 'unit': ingredient.unit,
-                         'quantity': item.quantity, 'before': before, 'after': ingredient.current_stock, 'delta': item.quantity})
+        planned['received'] = quantity(planned.get('received', 0) + line['quantity'])
+        received.append(line | {'before': before, 'after': ingredient.current_stock, 'delta': line['quantity']})
     receipt.lines = received; purchase.lines = updated
     purchase.status = 'received' if all(i.get('received', 0) >= i['quantity'] for i in updated) else 'part_received'
     record(db, user, 'receive_purchase', 'stock_documents', purchase.id, after={'receipt_id': receipt.id, 'lines': received})
