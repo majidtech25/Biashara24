@@ -16,7 +16,7 @@ def money(value) -> float:
     return round(float(value or 0), 2)
 
 def user_dict(u):
-    return {"id": u.id, "username": u.username, "full_name": u.full_name, "role": u.role, "active": u.active, "department_id":u.department_id}
+    return {"id": u.id, "username": u.username, "full_name": u.full_name, "role": u.role, "active": u.active, "department_id":u.department_id, "branch_id":u.branch_id}
 
 def menu_dict(m):
     return {"id": m.id, "name": m.name, "price": money(m.price), "category_id": m.category_id,

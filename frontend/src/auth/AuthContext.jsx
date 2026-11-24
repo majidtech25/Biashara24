@@ -13,6 +13,7 @@ export function AuthProvider({children}){
     localStorage.removeItem('b360_token');
     localStorage.removeItem('b360_user');
     localStorage.removeItem('b360_refresh_token');
+    localStorage.removeItem('b360_branch');
     setUser(null);setStatus('anonymous');setError('');
   },[]);
   const verify=useCallback(async()=>{

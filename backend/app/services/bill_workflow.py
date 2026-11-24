@@ -43,6 +43,9 @@ def append_lines(db, order, lines):
     menu = {m.id:m for m in db.scalars(select(MenuItem).where(MenuItem.id.in_(ids))).all()}
     if len(menu) != len(ids) or any(not m.active or not m.category.is_active or not m.department.is_active for m in menu.values()):
         raise HTTPException(400, "One or more menu items are unavailable. Refresh the menu.")
+    from ..branching import switched_off
+    if ids & switched_off(db, order.branch_id):
+        raise HTTPException(400, "One or more menu items are switched off at this branch. Refresh the menu.")
     entries = []
     for line in lines:
         item = menu[line.menu_item_id]

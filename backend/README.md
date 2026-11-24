@@ -65,6 +65,26 @@ New schema changes are Alembic revisions in `alembic_migrations/versions`, writt
 `alembic revision -m "describe the change"` from `backend/`. Check `alembic current` to see a
 database's revision. `/ready` returns 503 until the schema is at the newest revision.
 
+## Branches
+
+Every operational record (tables, bills, payments, kitchen lines, cashier shifts, refunds,
+stock, recipes, car-wash bays and washes, daily summaries) belongs to a branch.
+`app/branching.py` does this automatically for every request:
+
+- Staff work in their own branch (`users.branch_id`). A director without a branch can see
+  all branches, or work in one by sending the `X-Branch-Id` header (the app's branch picker
+  does this).
+- Reads only return the request's branch; new records are stamped with it. When a
+  director views all branches and more than one is open, creating a record asks them to
+  pick a branch first.
+- The menu, categories, departments, car-wash service prices and suppliers are shared.
+  Each branch can switch menu items off (`PUT /api/branches/{id}/menu/{item}`).
+- Upgrading puts all existing records and non-director staff in "Main branch".
+- Staff of a closed branch cannot work until it is reopened or they are moved.
+
+Known limit: department printer addresses are still shared, so two branches cannot yet
+print to different kitchen printers for the same department.
+
 ## Sign-in protection
 
 - Five failed sign-ins for one email from one address within 15 minutes block further

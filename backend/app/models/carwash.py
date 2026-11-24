@@ -1,14 +1,16 @@
 from decimal import Decimal
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import UniqueConstraint, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from ..database import Money, Base
+from .branch import BranchScoped
 from .user import now
 
-class CarWashBay(Base):
+class CarWashBay(BranchScoped, Base):
     __tablename__ = "carwash_bays"
+    __table_args__ = (UniqueConstraint("branch_id", "bay_number", name="uq_carwash_bay_branch_number"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    bay_number: Mapped[int] = mapped_column(Integer, unique=True)
+    bay_number: Mapped[int] = mapped_column(Integer)
     name: Mapped[str] = mapped_column(String(80))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
@@ -23,7 +25,7 @@ class CarWashService(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
-class CarWashTransaction(Base):
+class CarWashTransaction(BranchScoped, Base):
     __tablename__ = "carwash_transactions"
     id: Mapped[int] = mapped_column(primary_key=True)
     transaction_number: Mapped[str | None] = mapped_column(String(40), unique=True)

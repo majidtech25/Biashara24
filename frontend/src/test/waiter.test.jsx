@@ -114,7 +114,9 @@ it('refreshes every 15 seconds while visible',async()=>{
 });
 
 it('shows connection errors with retry and recovers without inventing bills',async()=>{
- mock.mockRejectedValueOnce(new TypeError('No connection'));open('/waiter/bills');
+ const original=mock.getMockImplementation();let failed=false;
+ mock.mockImplementation((url,options)=>new URL(url).pathname==='/api/orders'&&!failed?(failed=true,Promise.reject(new TypeError('No connection'))):original(url,options));
+ open('/waiter/bills');
  expect(await screen.findByRole('alert')).toHaveTextContent('No connection');
  fireEvent.click(screen.getByRole('button',{name:'Retry'}));expect(await screen.findByText('B-11')).toBeInTheDocument();
 });

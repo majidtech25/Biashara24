@@ -23,8 +23,10 @@ class UserCreate(BaseModel):
     role: Role
     full_name: str | None = None
     department_id: int | None = None
+    branch_id: int | None = None
 class UserUpdate(BaseModel):
     department_id: int | None = None
+    branch_id: int | None = None
     full_name: str | None = None
     role: Role | None = None
     active: bool | None = None

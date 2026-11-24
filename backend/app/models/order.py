@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database import Money, Base
+from .branch import BranchScoped
 from .user import User, now
 
 class Category(Base):
@@ -38,7 +39,7 @@ class MenuItem(Base):
     category: Mapped[Category] = relationship()
     department: Mapped[Department] = relationship()
 
-class Order(Base):
+class Order(BranchScoped, Base):
     __tablename__ = "orders"
     id: Mapped[int] = mapped_column(primary_key=True)
     table_id: Mapped[int | None] = mapped_column(ForeignKey("dining_tables.id"))

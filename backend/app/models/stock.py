@@ -1,13 +1,15 @@
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import UniqueConstraint, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database import Base
+from .branch import BranchScoped
 from .user import now
 
-class Ingredient(Base):
+class Ingredient(BranchScoped, Base):
     __tablename__ = "ingredients"
+    __table_args__ = (UniqueConstraint("branch_id", "name", name="uq_ingredient_branch_name"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True)
+    name: Mapped[str] = mapped_column(String(100))
     unit: Mapped[str] = mapped_column(String(30))
     description: Mapped[str | None] = mapped_column(Text)
     reorder_quantity: Mapped[float] = mapped_column(Float, default=0)
@@ -18,7 +20,7 @@ class Ingredient(Base):
     last_updated: Mapped[datetime] = mapped_column(DateTime, default=now)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
-class StockTransaction(Base):
+class StockTransaction(BranchScoped, Base):
     __tablename__ = "stock_transactions"
     id: Mapped[int] = mapped_column(primary_key=True)
     ingredient_id: Mapped[int] = mapped_column(ForeignKey("ingredients.id"), index=True)

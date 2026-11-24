@@ -109,3 +109,26 @@ def test_postgresql_float_columns_become_exact_numeric():
         kind = db.execute(text("SELECT data_type, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_name='orders' AND column_name='total'")).one()
         assert tuple(kind) == ("numeric", 14, 2)
         assert db.execute(text("SELECT total FROM orders WHERE id=990001")).scalar() == Decimal("21.37")
+
+
+def test_upgrade_real_v6_database_with_foreign_keys_on(tmp_path):
+    """A database made by the app before Alembic, upgraded the way the server does it."""
+    import sqlite3
+    from pathlib import Path
+    from sqlalchemy import event
+    path = tmp_path / "v6.db"
+    with sqlite3.connect(path) as raw:
+        raw.executescript((Path(__file__).parent / "fixtures" / "schema_v6.sql").read_text())
+    engine = create_engine("sqlite:///" + str(path))
+    event.listen(engine, "connect", lambda connection, _: connection.execute("PRAGMA foreign_keys=ON"))
+    upgrade(engine)
+    with engine.connect() as db:
+        assert current_revision(db) == head_revision()
+        assert db.execute(text("SELECT total, branch_id FROM orders")).one() == (348.3, 1)
+        assert db.execute(text("SELECT number, branch_id FROM dining_tables")).one() == (5, 1)
+        assert db.execute(text("SELECT count(*) FROM users WHERE role != 'director' AND branch_id IS NULL")).scalar() == 0
+        assert db.execute(text("SELECT branch_id FROM users WHERE username='director@gmail.com'")).scalar() is None
+        assert db.execute(text("PRAGMA foreign_keys")).scalar() == 1
+        assert db.execute(text("PRAGMA foreign_key_check")).all() == []
+    assert len(list(tmp_path.glob("*.pre-v6-*.bak"))) == 1
+    engine.dispose()

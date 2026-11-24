@@ -5,6 +5,7 @@ import {firstPage,roles} from './config/navigation';
 import RolePage from './pages/RolePages';
 import {AppStore,useAppStore} from './state/AppStore';
 import {AuthProvider,useAuth} from './auth/AuthContext';
+import {BranchPicker,useBranchContext} from './pages/Branches';
 import {AccessDenied,DesignationPicker,Landing,Login,SessionGate,homeFor} from './pages/PublicPages';
 
 function RequireAuth(){
@@ -17,7 +18,7 @@ function RequireAuth(){
 function RequireRole({role}){const {user}=useAuth();return user.role===role?<AppStore key={`${user.id}-${role}`}><Workspace role={role}/></AppStore>:<AccessDenied/>}
 function Workspace({role}){
   const location=useLocation();const {user,logout}=useAuth();const roleData=roles[role];
-  const [sidebar,setSidebar]=useState(false);const {state,dispatch}=useAppStore();
+  const [sidebar,setSidebar]=useState(false);const {state,dispatch}=useAppStore();const branch=useBranchContext();
   const notificationPage=roleData.nav.find(([id])=>id.includes('notifications'));
   const sidebarLinks=roleData.sidebarLinks?roleData.sidebarLinks.map(id=>roleData.nav.find(([page])=>page===id)):roleData.nav;
   const workspaceTools=roleData.sidebarLinks?roleData.nav.filter(([id])=>!roleData.sidebarLinks.includes(id)):[];
@@ -27,11 +28,11 @@ function Workspace({role}){
     <aside className={`sidebar ${sidebar?'open':''}`}>
       <div className="brand"><div><strong>Biashara<span>360</span></strong><small>{roleData.label.toUpperCase()}</small></div><button className="mobile-close" aria-label="Close navigation" onClick={()=>setSidebar(false)}><X/></button></div>
       <nav aria-label="Main navigation">{sidebarLinks.map(([id,label,Icon])=><NavLink key={id} to={`/${role}/${id}`}><Icon/><span>{label}</span></NavLink>)}</nav>
-      <div className="sidebar-bottom"><div className="branch-label"><MapPin/><div><strong>Main Branch</strong><small>Restaurant & Car Wash<br/>Nairobi, Kenya</small></div></div><div className="signed-in-user"><div className="profile-avatar">{(user.full_name||user.username).charAt(0).toUpperCase()}</div><div><strong>{user.full_name||user.username}</strong><small>{roleData.label}</small></div></div><button className="signout-button" onClick={logout}><LogOut/>Sign out</button><p><Leaf/> Grow Today.<br/>A Bigger Tomorrow.</p></div>
+      <div className="sidebar-bottom"><div className="branch-label"><MapPin/><div><strong>{branch.label||'Branch'}</strong><small>Restaurant & Car Wash<br/>{branch.current?.address||'Kenya'}</small></div></div><div className="signed-in-user"><div className="profile-avatar">{(user.full_name||user.username).charAt(0).toUpperCase()}</div><div><strong>{user.full_name||user.username}</strong><small>{roleData.label}</small></div></div><button className="signout-button" onClick={logout}><LogOut/>Sign out</button><p><Leaf/> Grow Today.<br/>A Bigger Tomorrow.</p></div>
     </aside>
     {sidebar&&<button className="scrim" onClick={()=>setSidebar(false)} aria-label="Close navigation"/>}
     <main>
-      <header><button className="mobile-menu" aria-label="Open navigation" onClick={()=>setSidebar(true)}><Menu/></button><div className="branch-heading"><strong>Main Branch</strong><small>Restaurant <span>|</span> Car Wash <span>|</span> Nairobi</small></div><div className="header-actions"><span className="demo-label">Live business data</span>{notificationPage&&<NavLink className="icon-button notice" aria-label="View notifications" to={`/${role}/${notificationPage[0]}`}><Bell/><i/></NavLink>}<div className="profile-avatar">{(user.full_name||user.username).charAt(0).toUpperCase()}</div><span>{user.full_name||user.username}</span></div></header>
+      <header><button className="mobile-menu" aria-label="Open navigation" onClick={()=>setSidebar(true)}><Menu/></button><div className="branch-heading"><BranchPicker/><small>Restaurant <span>|</span> Car Wash{branch.current?.address?<><span>|</span> {branch.current.address}</>:null}</small></div><div className="header-actions"><span className="demo-label">Live business data</span>{notificationPage&&<NavLink className="icon-button notice" aria-label="View notifications" to={`/${role}/${notificationPage[0]}`}><Bell/><i/></NavLink>}<div className="profile-avatar">{(user.full_name||user.username).charAt(0).toUpperCase()}</div><span>{user.full_name||user.username}</span></div></header>
       <div className="workspace">
         {['manager','director'].includes(role)&&location.pathname!=='/manager/manager-dashboard'&&<nav className="live-actions" aria-label="Bill management"><NavLink className="btn" to={'/'+role+'/tables'}>Tables</NavLink><NavLink className="btn" to={'/'+role+'/bill-changes'}>Bill approvals</NavLink></nav>}
         {workspaceTools.length>0&&location.pathname!=='/manager/manager-dashboard'&&<details className="workspace-tools" key={role}><summary>Workspace tools</summary><nav aria-label="Workspace tools">{workspaceTools.map(([id,label,Icon])=><NavLink key={id} to={`/${role}/${id}`}><Icon/><span>{label}</span></NavLink>)}</nav></details>}

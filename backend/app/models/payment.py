@@ -3,9 +3,10 @@ from datetime import datetime
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database import Money, Base
+from .branch import BranchScoped
 from .user import now
 
-class Payment(Base):
+class Payment(BranchScoped, Base):
     __tablename__ = "payments"
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)

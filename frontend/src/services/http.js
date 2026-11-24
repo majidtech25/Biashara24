@@ -20,6 +20,8 @@ export async function request(path, options = {}) {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       ...(token ? {Authorization: `Bearer ${token}`} : {}),
+      // Directors can work in one branch at a time; the server ignores this for other roles.
+      ...(localStorage.getItem('b360_branch') ? {'X-Branch-Id': localStorage.getItem('b360_branch')} : {}),
       ...options.headers
     }
   });

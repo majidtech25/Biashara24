@@ -11,11 +11,14 @@ import WaiterWorkspace from './WaiterWorkspace';
 import BillManagement from './BillManagement';
 import ManagerDashboard from './ManagerDashboard';
 import OrderBoard from './OrderBoard';
+import Branches,{BranchMenuPage} from './Branches';
 import PreviewWorkspace,{previewModules} from './PreviewWorkspace';
 import {KitchenOperations,LiveNotifications,Recipes,Suppliers,StockDocuments,CashOffice,Refunds,BusinessSettings,PrinterRecovery} from './RestaurantOperations';
 
 export default function RolePage({id}){
  const {user}=useAuth();const location=useLocation();
+ if(id==='branches')return <Branches/>;
+ if(id==='branch-menu')return <BranchMenuPage/>;
  if(['kitchen','food-pickup'].includes(id))return <KitchenOperations/>;
  if(['notifications','manager-notifications'].includes(id))return <LiveNotifications/>;
  if(id==='recipes')return <Recipes/>;

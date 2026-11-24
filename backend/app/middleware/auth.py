@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 from sqlalchemy import select
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..database import get_db
 from ..models import RevokedToken, User
+from ..branching import apply_scope
 
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer = HTTPBearer(auto_error=False)
@@ -30,7 +31,7 @@ def decode_token(token: str) -> dict:
     except jwt.PyJWTError as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
-def current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer), db: Session = Depends(get_db)) -> User:
+def current_user(request: Request, credentials: HTTPAuthorizationCredentials = Depends(bearer), db: Session = Depends(get_db)) -> User:
     if not credentials: raise HTTPException(status_code=401, detail="Authentication required")
     data = decode_token(credentials.credentials)
     if data.get("type") != "access": raise HTTPException(status_code=401, detail="Access token required")
@@ -39,6 +40,8 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer), db
     user = db.get(User, int(data["sub"]))
     if not user or not user.active or user.token_version != data.get("ver"):
         raise HTTPException(status_code=401, detail="User is inactive or token is stale")
+    # Directors may pick a branch with the X-Branch-Id header; everyone else works in their own.
+    apply_scope(db, user, request.headers.get("X-Branch-Id"))
     return user
 
 def require_roles(*roles: str) -> Callable:

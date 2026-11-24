@@ -33,6 +33,7 @@ export const roles = {
       ['kitchen', 'Kitchen Operations', ChefHat], ['menu', 'Menu', UtensilsCrossed],
       ['staff', 'Staff', Users], ['printers', 'Printers', Printer],
       ['departments', 'Departments', Building2], ['manager-reports', 'Reports', FileBarChart],
+      ['branch-menu', 'Branch menu', SlidersHorizontal],
       ['manager-notifications', 'Notifications', Bell]
       ,['reorder','Purchasing',Truck],['recipes','Recipes',BookOpen],['suppliers','Suppliers',Users],['deliveries','Stock Documents',Truck],['stock-counts','Stock Counts',ClipboardCheck],['reconciliation','Cash Reconciliation',WalletCards],['refunds','Refunds',Receipt],['printer-recovery','Printer Recovery',Printer],['settings','Business Settings',Settings]
     ]
