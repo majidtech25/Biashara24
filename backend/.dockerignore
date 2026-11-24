@@ -1,0 +1,16 @@
+.venv
+.env
+*.db
+*.db-*
+*.bak
+backups
+restored
+tests
+htmlcov
+.coverage
+.pytest_cache
+**/__pycache__
+*.txt
+!requirements.txt
+*.json
+audit_probe.py

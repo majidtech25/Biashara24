@@ -16,3 +16,6 @@ frontend/.env.local
 # Local test/build output
 frontend/*-results.txt
 frontend/*-tests.txt
+deploy/.env
+deploy/backups/
+deploy/rclone/

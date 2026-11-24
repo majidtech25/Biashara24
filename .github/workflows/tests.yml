@@ -62,3 +62,29 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+
+  deploy:
+    # Builds and starts the same containers the server runs, then checks HTTPS,
+    # the database, a backup and a restore drill.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the stack
+        run: |
+          printf 'DOMAIN=localhost\nPOSTGRES_PASSWORD=%s\nSECRET_KEY=%s\n' "$(openssl rand -hex 16)" "$(openssl rand -hex 32)" > .env
+          docker compose up -d --build --wait --wait-timeout 180
+      - name: App answers over HTTPS
+        run: |
+          curl -skf https://localhost/ready
+          curl -skf https://localhost/login/director | grep -q '<div id="root">'
+      - name: Backup, off-site tool and restore drill
+        run: |
+          docker compose exec -T backup rclone version
+          docker compose exec -T backup backup.sh
+          ./restore-drill.sh
+      - name: Logs
+        if: failure()
+        run: docker compose logs

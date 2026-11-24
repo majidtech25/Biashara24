@@ -1,4 +1,5 @@
-﻿const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+﻿// Empty VITE_API_URL means the API is on the same address as the app (the Docker setup).
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
 
 export const menuImageUrl = value => value?.startsWith('/api/menu-images/') ? API_URL.replace(/\/$/,'') + value : value;
 

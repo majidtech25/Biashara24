@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-this-secret-in-production"
     access_token_minutes: int = 30
     refresh_token_days: int = 7
+    sentry_dsn: str = ""
     allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:5500"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

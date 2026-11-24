@@ -7,6 +7,10 @@ See [Phase 2 waiter workspace setup and verification](PHASE2_HANDOVER.md) for ta
 - `backend/` — FastAPI, SQLAlchemy, JWT and SQLite/PostgreSQL
 - `frontend/` — React, Vite, responsive role-based interface
 
+## Put it on a server
+
+See [DEPLOYMENT.md](DEPLOYMENT.md): Docker Compose with PostgreSQL, automatic HTTPS, daily backups and monitoring.
+
 ## Run locally
 
 Use two terminals:
