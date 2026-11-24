@@ -123,7 +123,7 @@ describe('live workspaces',()=>{
  });
  it('records cashless payment then confirms the external receipt',async()=>{
  const view=open('/cashier/checkout');await screen.findByRole('button',{name:/Table 1.*KES 320/});
- fireEvent.click(screen.getByRole('button',{name:/Table 1.*KES 320/}));await screen.findByRole('button',{name:'Cash'});await waitFor(()=>expect(screen.getByRole('button',{name:'M-Pesa'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'M-Pesa'}));fireEvent.change(screen.getByLabelText('Payment reference'),{target:{value:'REF123'}});fireEvent.click(screen.getByRole('button',{name:'Record cashless payment'}));
+ fireEvent.click(screen.getByRole('button',{name:/Table 1.*KES 320/}));await screen.findByRole('button',{name:'Cash'});await waitFor(()=>expect(screen.getByRole('button',{name:'M-Pesa'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'M-Pesa'}));fireEvent.change(screen.getByLabelText('M-Pesa receipt number'),{target:{value:'REF123'}});fireEvent.click(screen.getByRole('button',{name:'Record cashless payment'}));
  expect(await screen.findByRole('button',{name:'Print pending record'})).toBeInTheDocument();
  expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/orders/1/clear'),expect.objectContaining({method:'POST'}));
  view.unmount();open('/cashier/payment-ledger');fireEvent.click(await screen.findByRole('button',{name:/B-LIVE-1.*KES 320/}));

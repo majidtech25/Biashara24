@@ -109,34 +109,58 @@ Backups are also taken automatically before every update (step 8).
 
 The containers restart by themselves after a crash or a server reboot.
 
-## 7a. M-Pesa prompts (optional)
+## 7a. M-Pesa Paybill and QR code (optional)
 
-With this set up, the cashier types the customer's number and the customer gets a prompt on their phone to
-enter their M-Pesa PIN. The bill or car wash is marked paid by itself when Safaricom confirms it. Without it,
-staff keep entering the receipt number from the customer's M-Pesa message by hand, as now.
+The system never asks the customer to pay. Every bill it prints shows the business's **Paybill number**, the
+**bill number as the account number**, the amount, and (with Daraja keys) an **M-Pesa QR code** the customer
+can scan. The customer pays by themselves. Safaricom then tells the system about each payment into the Paybill,
+and the cashier sees it under **M-Pesa payments received** at checkout (or on the car wash). The cashier picks
+the payment (or types the receipt number from the customer's message) and records the bill as paid. Cash is
+recorded as before.
 
-1. Create an account and an app on Safaricom's developer portal ([developer.safaricom.co.ke](https://developer.safaricom.co.ke))
-   with the M-Pesa Express API. It gives a **consumer key** and **consumer secret**.
-2. **Testing first (sandbox):** the portal's simulator shows test credentials, including a test shortcode and
-   passkey. Put them in `.env` with `MPESA_ENVIRONMENT=sandbox`.
-3. In `.env`, fill in `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`, and
-   `MPESA_CALLBACK_TOKEN` (make it with `openssl rand -hex 32`). For a **Till**, also set `MPESA_TILL_NUMBER` to
-   the Till number, and set `MPESA_SHORTCODE` to the store number Safaricom gives for it. For a **Paybill**,
-   leave `MPESA_TILL_NUMBER` empty.
-4. Apply it: `sudo docker compose up -d`. The M-Pesa option at checkout now shows **Send M-Pesa prompt**.
-5. **Going live:** apply for go-live on the portal for the business's Paybill or Till. Safaricom sends the
-   live passkey by email. Then set `MPESA_ENVIRONMENT=production`, change the key, secret, shortcode and
-   passkey to the live ones, and run `sudo docker compose up -d` again.
+What the system checks when a receipt is used:
+- the receipt has not paid another bill already,
+- the amount matches the bill (otherwise staff are told the difference),
+- the payment belongs to this branch's bill.
 
-Safaricom sends payment results to `https://<your domain>/api/mpesa/callback/<MPESA_CALLBACK_TOKEN>`. Only
-someone who knows the token can post results there. Keep it secret, and change it if it leaks.
+A receipt Safaricom has not reported yet is saved as **waiting**, as before. It is confirmed by itself when
+Safaricom's notice for it arrives with the same amount.
 
-What staff see:
-- If the customer cancels, has too little money, enters a wrong PIN or does not answer, the screen says so.
-  Staff can send the prompt again, or take cash instead.
-- If a result never arrives, the app asks Safaricom for it after about 20 seconds.
-- If money arrives for a bill that was already paid another way, nothing is applied twice. The payment is
-  listed under **M-Pesa payments needing attention** on the managers' Payments page, so it can be refunded.
+Setting it up:
+
+1. **Paybill only, no keys:** set `MPESA_SHORTCODE` to the Paybill number. Bills then show the Paybill and
+   account number. Staff check receipts by hand. There is no QR code and no automatic monitoring.
+2. **With Daraja keys:** create an account and an app on Safaricom's developer portal
+   ([developer.safaricom.co.ke](https://developer.safaricom.co.ke)). It gives a **consumer key** and
+   **consumer secret**. Test in the sandbox first with `MPESA_ENVIRONMENT=sandbox` and the sandbox
+   test shortcode the portal shows.
+3. In `.env`, fill in `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_BUSINESS_NAME`
+   and `MPESA_CALLBACK_TOKEN` (make it with `openssl rand -hex 32`). Apply with `sudo docker compose up -d`.
+4. **Tell Safaricom where to send payments:** on the server, run
+   ```bash
+   cd ~/Biashara24/deploy
+   sudo docker compose exec backend python -c "from app.services import mpesa; print(mpesa.register_urls())"
+   ```
+   (a signed-in director can do the same with `POST /api/paybill/register`; it is also recorded in the audit log).
+   The system registers these two addresses with Safaricom's C2B v2 API:
+   `https://<your domain>/api/c2b/<MPESA_CALLBACK_TOKEN>/confirmation` and `.../validation`.
+   Safaricom's rules: the addresses must be public HTTPS and must not contain words such as "mpesa",
+   "safaricom", "exe", "cmd", "sql" or "query". In production the addresses are registered **once**; to change
+   them later, ask Safaricom (M-Pesa business support) to remove the old ones first.
+5. **Going live:** apply for go-live on the portal for the business's Paybill. Then set
+   `MPESA_ENVIRONMENT=production`, change the key, secret and shortcode to the live ones, run
+   `sudo docker compose up -d`, and register the addresses (step 4) once more for production.
+6. **Before trusting the QR code with customers:** scan a printed bill's QR code with the M-PESA app and
+   check that it fills in the right Paybill, account number and amount. The system sends the bill number as
+   the QR code's reference (`RefNo`). The Daraja documentation copies we used do not state how the app
+   shows that reference for a Paybill, so check it on a real phone before going live.
+
+Only someone who knows `MPESA_CALLBACK_TOKEN` can post payments to the system. Keep it secret. If it leaks,
+change it and register the addresses again (in production, Safaricom must remove the old ones first).
+
+What managers see: **M-Pesa Paybill payments** on the Live Orders page lists every payment into the
+Paybill, those not yet confirmed by staff first. A payment with **No match** usually means the customer typed
+the account number wrongly; the cashier can still use it by its receipt number.
 
 ## 8. Updating to a new version
 

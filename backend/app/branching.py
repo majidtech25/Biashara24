@@ -22,7 +22,7 @@ ALL = "all"
 
 # Parent records whose branch a new row should inherit, checked in this order.
 _PARENTS = (("order_id", "Order"), ("shift_id", "CashShift"), ("ingredient_id", "Ingredient"),
-            ("payment_id", "Payment"), ("carwash_id", "CarWashTransaction"), ("menu_item_id", None))
+            ("payment_id", "Payment"), ("menu_item_id", None))
 
 
 def active_branches(db: Session):
