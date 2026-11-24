@@ -27,3 +27,12 @@ npm run dev
 ```
 
 Open `http://localhost:5173`. Select your designation, then sign in with the matching email and password. Initial accounts are listed in [frontend/README.md](frontend/README.md).
+
+## Car wash workflow
+
+1. **Bay Configuration** and **Service Types**: add bays and wash services. Both can be edited or switched off; a bay with a car on it cannot be switched off.
+2. **Staff & Attendants**: add the people who wash cars. They do not need a login.
+3. **New Transaction**: log the car and its payment on a free bay. A bay that already has a car waiting or being washed is refused.
+4. **Active Bays** (the bay board): pick an attendant and press *Start wash*, then *Finish wash* when the car leaves. The board refreshes every 15 seconds.
+
+Washes recorded before this workflow existed are marked as done when the database is upgraded.

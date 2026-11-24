@@ -71,7 +71,7 @@ export const roles = {
   carwash_manager: {
     label: 'Car Wash Manager',
     user: 'Collins Ouma',
-    sidebarLinks: ['wash-overview', 'new-wash', 'wash-payments', 'wash-history', 'service-types', 'wash-reports'],
+    sidebarLinks: ['wash-overview', 'active-bays', 'new-wash', 'wash-payments', 'attendants', 'wash-history', 'service-types', 'bay-config', 'wash-reports'],
     nav: [
       ['wash-overview', 'Car Wash Overview', LayoutDashboard], ['active-bays', 'Active Bays', Gauge],
       ['new-wash', 'New Transaction', Car], ['wash-payments', 'Payments', CreditCard],

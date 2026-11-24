@@ -126,6 +126,11 @@ def test_carwash_persistence_confirmation_and_history(client):
     assert r.status_code==201,r.text
     wash=r.json();assert wash["transaction_number"] and wash["vehicle_plate"]=="KDA 482M"
     assert c.get("/api/carwash/today",headers=cashier).json()["summary"]["cash_total"]==before["cash_total"]+500
+    # The bay is busy until this car is washed; a second car must wait.
+    assert c.post("/api/carwash/transaction",headers=cashier,json=payload).status_code==409
+    attendant=c.post("/api/carwash/attendants",headers=h,json={"name":"Otieno"}).json()
+    assert c.put(f'/api/carwash/{wash["id"]}/wash',headers=cashier,json={"status":"washing","attendant_id":attendant["id"]}).status_code==200
+    assert c.put(f'/api/carwash/{wash["id"]}/wash',headers=cashier,json={"status":"done"}).json()["wash_status"]=="done"
     payload.update(payment_method="m-pesa",mpesa_reference="WASH"+uuid4().hex[:8])
     r=c.post("/api/carwash/transaction",headers=cashier,json=payload);assert r.json()["payment_status"]=="pending"
     assert c.post(f'/api/carwash/{r.json()["id"]}/complete',headers=cashier).json()["payment_status"]=="completed"

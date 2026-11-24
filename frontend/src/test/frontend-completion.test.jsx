@@ -58,14 +58,14 @@ describe('frontend completion',()=>{
   fireEvent.click(within(dialog).getByRole('button',{name:'Mark ready'}));
   await waitFor(()=>expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/orders/1'),expect.objectContaining({method:'PUT',body:JSON.stringify({status:'ready'})})));
  });
- it('keeps unsupported service edits in a separate preview without a PUT request',async()=>{
-  fetch.mockImplementation(async url=>reply(url.includes('/services')?[{id:1,name:'Full wash',price:500,duration_minutes:30}]:[]));
+ it('saves service edits to the live record with a PUT request',async()=>{
+  fetch.mockImplementation(async url=>reply(url.includes('/services')?[{id:1,name:'Full wash',price:500,duration_minutes:30,is_active:true}]:[]));
   open(<Configuration resource="services" title="Wash Services"/>);
   fireEvent.click(await screen.findByRole('button',{name:'Edit'}));
   fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Price'),{target:{value:'600'}});
-  fireEvent.click(screen.getByRole('button',{name:'Save preview'}));
-  expect(screen.getByRole('heading',{name:'Preview edits — not applied to live records'})).toBeInTheDocument();
-  expect(fetch.mock.calls.some(([,opts])=>opts.method==='PUT')).toBe(false);
+  fireEvent.click(screen.getByRole('button',{name:'Save changes'}));
+  await waitFor(()=>expect(fetch.mock.calls.some(([url,opts])=>opts?.method==='PUT'&&url.includes('/api/carwash/services/1')&&JSON.parse(opts.body).price===600&&JSON.parse(opts.body).is_active===true)).toBe(true));
+  expect(screen.queryByRole('heading',{name:'Preview edits — not applied to live records'})).toBeNull();
  });
  it('replaces broken food images with a labelled fallback',()=>{
   render(<FoodPhoto src="https://example.com/missing.jpg" alt="Pilau"/>);fireEvent.error(screen.getByRole('img',{name:'Pilau'}));expect(screen.getByRole('img',{name:'Pilau photo unavailable'})).toBeInTheDocument();
