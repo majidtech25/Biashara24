@@ -43,6 +43,20 @@ def printer_for(db, department, branch_id):
     return (department.printer_ip, department.printer_port) if department.printer_ip else None
 
 
+def render_ticket(department, order, submission, entries, table_number) -> bytes:
+    """ESC/POS bytes for one kitchen ticket."""
+    label = {"original": "NEW ORDER", "addition": "ADDITIONAL ITEMS", "correction": "CORRECTION - REMOVE ITEMS"}.get(submission.kind, submission.kind.upper())
+    where = f"Table: {table_number}" if table_number else ("TAKEAWAY" + (f" - {order.customer}" if order.customer else "")) if getattr(order, "order_type", None) == "takeaway" else "Table: Unassigned"
+    lines = ["Biashara360", label, department.name, where,
+             "Bill: " + order.order_number, "Waiter: " + (order.waiter.full_name or order.waiter.username),
+             f"Ticket: {submission.id} | {submission.created_at.isoformat()} UTC"]
+    lines += [f"{abs(i['quantity'])} x {i['name']}" for i in entries]
+    lines += [submission.notes or "", "\n\n"]
+    text = "\n".join(lines)
+    text = "".join(c for c in text if c == "\n" or ord(c) >= 32)
+    return b"\x1b@" + text.encode("cp437", errors="replace") + b"\x1dV\x00"
+
+
 def send_batch_ticket(department, order, submission, entries, table_number, target=None):
     """Send one original/addition/correction ticket.
 
@@ -58,22 +72,14 @@ def send_batch_ticket(department, order, submission, entries, table_number, targ
             raise ValueError("Printer must use a private LAN address")
     except ValueError as exc:
         return {"status": "failed", "detail": str(exc)}  # wrong printer address: fix the setting
-    label = {"original": "NEW ORDER", "addition": "ADDITIONAL ITEMS", "correction": "CORRECTION - REMOVE ITEMS"}.get(submission.kind, submission.kind.upper())
-    where = f"Table: {table_number}" if table_number else ("TAKEAWAY" + (f" - {order.customer}" if order.customer else "")) if getattr(order, "order_type", None) == "takeaway" else "Table: Unassigned"
-    lines = ["Biashara360", label, department.name, where,
-             "Bill: " + order.order_number, "Waiter: " + (order.waiter.full_name or order.waiter.username),
-             f"Ticket: {submission.id} | {submission.created_at.isoformat()} UTC"]
-    lines += [f"{abs(i['quantity'])} x {i['name']}" for i in entries]
-    lines += [submission.notes or "", "\n\n"]
-    text = "\n".join(lines)
-    text = "".join(c for c in text if c == "\n" or ord(c) >= 32)
+    data = render_ticket(department, order, submission, entries, table_number)
     try:
         conn = socket.create_connection((str(address), int(target[1])), timeout=3)
     except OSError as exc:
         return {"status": "not_sent", "detail": str(exc)}
     try:
         with conn as stream:
-            stream.sendall(b"\x1b@" + text.encode("cp437", errors="replace") + b"\x1dV\x00")
+            stream.sendall(data)
         return {"status": "sent"}
     except OSError as exc:
         return {"status": "uncertain", "detail": str(exc)}
@@ -106,6 +112,9 @@ def retry_unsent(db, now=None):
             if deliveries[index].get("status") != "not_sent":
                 db.commit(); continue  # someone else handled it
             order = db.get(Order, batch.order_id)
+            from ..routes.print_agents import agent_branch
+            if agent_branch(db, order.branch_id):
+                db.commit(); continue  # the branch's print program handles its own retries
             department = db.get(Department, department_id)
             target = printer_for(db, department, order.branch_id)
             attempts = deliveries[index].get("attempts", 1) + 1

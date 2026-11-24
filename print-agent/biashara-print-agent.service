@@ -1,0 +1,17 @@
+# systemd unit for Linux or a Raspberry Pi. Copy the print-agent folder to /opt/biashara-print-agent,
+# put print_agent.ini there, then:
+#   sudo cp biashara-print-agent.service /etc/systemd/system/
+#   sudo systemctl enable --now biashara-print-agent
+[Unit]
+Description=Biashara360 print program
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/biashara-print-agent
+ExecStart=/usr/bin/python3 /opt/biashara-print-agent/print_agent.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,4 @@
-from .branch import Branch, BranchMenuItem, BranchPrinter, BranchScoped
+from .branch import Branch, BranchMenuItem, BranchPrinter, BranchScoped, PrintAgent
 from .user import RevokedToken, User
 from .order import Category, Department, MenuItem, Order, OrderItem, OrderStatusHistory
 from .payment import Payment

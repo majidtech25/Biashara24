@@ -162,6 +162,14 @@ What managers see: **M-Pesa Paybill payments** on the Live Orders page lists eve
 Paybill, those not yet confirmed by staff first. A payment with **No match** usually means the customer typed
 the account number wrongly; the cashier can still use it by its receipt number.
 
+## 7b. Kitchen printers at each branch
+
+The server is in the cloud and cannot reach printers on a branch's own network. Each branch
+runs the small **print program** in the `print-agent/` folder on a computer that stays on.
+It collects that branch's kitchen tickets and prints them locally. Setup steps are in
+[print-agent/README.md](print-agent/README.md): add the computer on the **Printers** page,
+copy its key into `print_agent.ini`, and start the program.
+
 ## 8. Updating to a new version
 
 ```bash
