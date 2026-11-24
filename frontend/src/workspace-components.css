@@ -24,3 +24,5 @@
 .bay-card-title{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.bay-card-title span{color:#5c6b5a;font-size:13px}
 .bay-card dl{margin:0;display:grid;gap:4px;font-size:13px}.bay-card dl div{display:flex;justify-content:space-between;gap:8px}.bay-card dt{color:#5c6b5a}.bay-card dd{margin:0;text-align:right}
 .bay-status{margin:0;font-weight:600;font-size:13px}.bay-free{border-left:5px solid #9bbd87}.bay-waiting{border-left:5px solid #e0b04a}.bay-washing{border-left:5px solid #4a8be0}
+.mpesa-prompt{display:grid;gap:8px;padding:12px;border:1px solid var(--border);border-radius:10px;background:#f7fbf4;margin:8px 0}
+.mpesa-prompt p{margin:0}.mpesa-prompt.paid{border-color:#9bbd87;background:#e9f5e1}.mpesa-prompt .muted{color:#5c6b5a;font-size:13px}

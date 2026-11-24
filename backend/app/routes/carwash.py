@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -93,10 +94,10 @@ def create(data: CarWashCreate, db: Session = Depends(get_db), user: User = Depe
     from ..services.cash_office import shift_for_payment
     shift = shift_for_payment(db, user)
     if money(data.amount) != money(service.price): raise HTTPException(400, "Amount must match the service price")
-    if data.payment_method == "m-pesa" and not data.mpesa_reference: raise HTTPException(400, "Cashless receipt reference is required")
+    if data.payment_method == "m-pesa" and not data.mpesa_reference and not data.mpesa_prompt: raise HTTPException(400, "Cashless receipt reference is required")
     if busy_wash(db, data.bay_id): raise HTTPException(409, "This bay already has a car. Finish that wash or choose another bay.")
     if data.attendant_id: active_attendant(db, data.attendant_id)
-    values = data.model_dump()
+    values = data.model_dump(exclude={"mpesa_prompt"})
     values["wash_status"] = "waiting"
     # A cashless entry awaits manual confirmation against the external receipt.
     if data.payment_method == "m-pesa": values["payment_status"] = "pending"
@@ -105,7 +106,7 @@ def create(data: CarWashCreate, db: Session = Depends(get_db), user: User = Depe
           shift_id=shift.id if shift else None, service_name_at_time=service.name,
           created_by=user.id, completed_at=datetime.utcnow() if values["payment_status"] == "completed" else None)
     db.add(x); db.flush()
-    if data.payment_method == 'm-pesa': x.mpesa_reference = reserve_receipt(db, data.mpesa_reference, 'carwash', x.id)
+    if data.payment_method == 'm-pesa' and data.mpesa_reference: x.mpesa_reference = reserve_receipt(db, data.mpesa_reference, 'carwash', x.id)
     record(db, user, "create", "carwash", x.id, after={"amount": x.amount, "payment_status": x.payment_status})
     finish_submission(submission, out(x))
     db.commit(); db.refresh(x)
@@ -136,8 +137,12 @@ def history(from_date: date | None = None, to_date: date | None = None,
     rows = db.scalars(q).all()
     return {"transactions": [out(x) for x in rows[offset:offset+limit]], "total": len(rows), "summary": totals(rows)}
 
+class ManualConfirm(BaseModel):
+    mpesa_reference: str | None = Field(default=None, max_length=100)
+
+
 @router.post("/{transaction_id}/complete")
-def complete(transaction_id: int, db: Session = Depends(get_db), user: User = Depends(auth)):
+def complete(transaction_id: int, data: ManualConfirm | None = None, db: Session = Depends(get_db), user: User = Depends(auth)):
     start_write(db)
     x = db.scalar(select(CarWashTransaction).where(CarWashTransaction.id == transaction_id).with_for_update())
     if not x: raise HTTPException(404, "Transaction not found")
@@ -147,6 +152,10 @@ def complete(transaction_id: int, db: Session = Depends(get_db), user: User = De
         from ..services.cash_office import shift_for_payment
         shift = shift_for_payment(db, user)
         x.shift_id = shift.id if shift else None
+    if x.payment_method == "m-pesa" and not x.mpesa_reference:
+        # Sent as a prompt that never completed: the customer paid another way.
+        if not data or not data.mpesa_reference: raise HTTPException(400, "Enter the M-Pesa receipt number from the customer's message.")
+        x.mpesa_reference = reserve_receipt(db, data.mpesa_reference, "carwash", x.id)
     x.payment_status = "completed"; x.completed_at = datetime.utcnow()
     record(db, user, "manual_payment_confirmation", "carwash", x.id, after={"status": "completed"})
     db.commit()

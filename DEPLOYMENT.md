@@ -109,6 +109,35 @@ Backups are also taken automatically before every update (step 8).
 
 The containers restart by themselves after a crash or a server reboot.
 
+## 7a. M-Pesa prompts (optional)
+
+With this set up, the cashier types the customer's number and the customer gets a prompt on their phone to
+enter their M-Pesa PIN. The bill or car wash is marked paid by itself when Safaricom confirms it. Without it,
+staff keep entering the receipt number from the customer's M-Pesa message by hand, as now.
+
+1. Create an account and an app on Safaricom's developer portal ([developer.safaricom.co.ke](https://developer.safaricom.co.ke))
+   with the M-Pesa Express API. It gives a **consumer key** and **consumer secret**.
+2. **Testing first (sandbox):** the portal's simulator shows test credentials, including a test shortcode and
+   passkey. Put them in `.env` with `MPESA_ENVIRONMENT=sandbox`.
+3. In `.env`, fill in `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`, and
+   `MPESA_CALLBACK_TOKEN` (make it with `openssl rand -hex 32`). For a **Till**, also set `MPESA_TILL_NUMBER` to
+   the Till number, and set `MPESA_SHORTCODE` to the store number Safaricom gives for it. For a **Paybill**,
+   leave `MPESA_TILL_NUMBER` empty.
+4. Apply it: `sudo docker compose up -d`. The M-Pesa option at checkout now shows **Send M-Pesa prompt**.
+5. **Going live:** apply for go-live on the portal for the business's Paybill or Till. Safaricom sends the
+   live passkey by email. Then set `MPESA_ENVIRONMENT=production`, change the key, secret, shortcode and
+   passkey to the live ones, and run `sudo docker compose up -d` again.
+
+Safaricom sends payment results to `https://<your domain>/api/mpesa/callback/<MPESA_CALLBACK_TOKEN>`. Only
+someone who knows the token can post results there. Keep it secret, and change it if it leaks.
+
+What staff see:
+- If the customer cancels, has too little money, enters a wrong PIN or does not answer, the screen says so.
+  Staff can send the prompt again, or take cash instead.
+- If a result never arrives, the app asks Safaricom for it after about 20 seconds.
+- If money arrives for a bill that was already paid another way, nothing is applied twice. The payment is
+  listed under **M-Pesa payments needing attention** on the managers' Payments page, so it can be refunded.
+
 ## 8. Updating to a new version
 
 ```bash

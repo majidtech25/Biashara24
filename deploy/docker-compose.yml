@@ -36,6 +36,14 @@ services:
       ALLOWED_ORIGINS: https://${DOMAIN:-localhost}
       BUSINESS_TIMEZONE: Africa/Nairobi
       SENTRY_DSN: ${SENTRY_DSN:-}
+      MPESA_ENVIRONMENT: ${MPESA_ENVIRONMENT:-sandbox}
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-}
+      MPESA_SHORTCODE: ${MPESA_SHORTCODE:-}
+      MPESA_TILL_NUMBER: ${MPESA_TILL_NUMBER:-}
+      MPESA_PASSKEY: ${MPESA_PASSKEY:-}
+      MPESA_CALLBACK_URL: https://${DOMAIN:-localhost}
+      MPESA_CALLBACK_TOKEN: ${MPESA_CALLBACK_TOKEN:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/ready',timeout=5).status==200 else 1)"]
       interval: 30s
