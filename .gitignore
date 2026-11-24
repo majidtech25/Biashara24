@@ -12,3 +12,7 @@ backend/htmlcov/
 frontend/node_modules/
 frontend/dist/
 frontend/.env.local
+
+# Local test/build output
+frontend/*-results.txt
+frontend/*-tests.txt
