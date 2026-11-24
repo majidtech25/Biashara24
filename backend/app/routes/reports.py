@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..middleware.auth import require_roles
-from ..services.report_services import build, daily_data, pdf_document
+from ..services.report_services import build, daily_data, pdf_document, profit_vat
 
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 auth = require_roles("manager", "director")
@@ -29,6 +29,12 @@ def monthly(year: int | None = Query(None, ge=2000, le=2100), month: int | None 
     first = date(year, month, 1)
     last = (date(year+1, 1, 1) if month == 12 else date(year, month+1, 1)) - timedelta(days=1)
     return build(db, first, last)
+
+@router.get("/profit-vat")
+def profit_and_vat(from_date: date | None = None, to_date: date | None = None, db: Session = Depends(get_db), _=Depends(auth)):
+    """Restaurant sales without VAT, food cost, gross profit, and VAT by rate for a date range."""
+    last = to_date or business_today()
+    return profit_vat(db, from_date or last.replace(day=1), last)
 
 @router.get("/export")
 def export(report_type: Literal["daily", "weekly", "monthly"] = "daily", format: Literal["csv", "pdf"] = "csv",
