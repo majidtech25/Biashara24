@@ -1,28 +1,36 @@
-"""Error reporting stays off unless SENTRY_DSN is set."""
+"""Error reporting stays off unless SENTRY_DSN is set, and never sends personal data."""
 import sentry_sdk
 
 from app import monitoring
 from app.config import get_settings
 
 
-def test_error_reporting_is_off_without_a_dsn(monkeypatch):
-    monkeypatch.delenv("SENTRY_DSN", raising=False)
+def _setup(monkeypatch, dsn):
+    calls = []
+    # Record the settings instead of starting a real Sentry client (no network in tests).
+    monkeypatch.setattr(sentry_sdk, "init", lambda **options: calls.append(options))
+    if dsn:
+        monkeypatch.setenv("SENTRY_DSN", dsn)
+    else:
+        monkeypatch.delenv("SENTRY_DSN", raising=False)
     get_settings.cache_clear()
     try:
-        assert monitoring.setup() is False
-        assert not sentry_sdk.get_client().is_active()
+        return monitoring.setup(), calls
     finally:
         get_settings.cache_clear()
+
+
+def test_error_reporting_is_off_without_a_dsn(monkeypatch):
+    enabled, calls = _setup(monkeypatch, "")
+    assert enabled is False and calls == []
 
 
 def test_error_reporting_turns_on_with_a_dsn(monkeypatch):
-    monkeypatch.setenv("SENTRY_DSN", "https://public@o0.ingest.sentry.io/1")
-    get_settings.cache_clear()
-    try:
-        assert monitoring.setup() is True
-        client = sentry_sdk.get_client()
-        assert client.is_active() and client.options["send_default_pii"] is False
-        assert client.options["max_request_body_size"] == "never" and client.options["include_local_variables"] is False
-    finally:
-        sentry_sdk.init()  # no DSN: turns reporting off again for the other tests
-        get_settings.cache_clear()
+    enabled, calls = _setup(monkeypatch, "https://public@example.invalid/1")
+    assert enabled is True and len(calls) == 1
+    options = calls[0]
+    assert options["dsn"] == "https://public@example.invalid/1"
+    assert options["send_default_pii"] is False
+    assert options["max_request_body_size"] == "never"
+    assert options["include_local_variables"] is False
+    assert options["traces_sample_rate"] == 0

@@ -98,6 +98,7 @@ class CarWashCreate(BaseModel):
     vehicle_type: str | None = None
     mpesa_reference: str | None = None
     attendant_id: int | None = None
+    mpesa_prompt: bool = False  # pay by M-Pesa prompt: no receipt reference needed yet
     @field_validator("vehicle_plate")
     @classmethod
     def normalize_plate(cls, value: str): return " ".join(value.upper().split())
