@@ -1,7 +1,8 @@
+from decimal import Decimal
 from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from ..database import Base
+from ..database import Money, Base
 from .user import User, now
 
 class Category(Base):
@@ -25,7 +26,7 @@ class MenuItem(Base):
     __tablename__ = "menu_items"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
-    price: Mapped[float] = mapped_column(Float)
+    price: Mapped[Decimal] = mapped_column(Money)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), index=True)
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), index=True)
     image_url: Mapped[str | None] = mapped_column(String(500))
@@ -47,12 +48,13 @@ class Order(Base):
     customer: Mapped[str | None] = mapped_column(String(120))
     notes: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
-    total: Mapped[float] = mapped_column(Float, default=0)
+    total: Mapped[Decimal] = mapped_column(Money, default=0)
     status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
     cleared_at: Mapped[datetime | None] = mapped_column(DateTime)
     waiter: Mapped[User] = relationship()
-    items: Mapped[list["OrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan", lazy="selectin")
+    items: Mapped[list["OrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan", lazy="selectin",
+                                                 order_by="OrderItem.id")  # submission order on every database
 
 class OrderItem(Base):
     __tablename__ = "order_items"
@@ -62,7 +64,7 @@ class OrderItem(Base):
     menu_item_id: Mapped[int] = mapped_column(ForeignKey("menu_items.id"))
     quantity: Mapped[int] = mapped_column(Integer)
     voided_quantity: Mapped[int] = mapped_column(Integer, default=0)
-    price_at_time: Mapped[float] = mapped_column(Float)
+    price_at_time: Mapped[Decimal] = mapped_column(Money)
     tax_rate_at_time: Mapped[int | None] = mapped_column(Integer)
     name_at_time: Mapped[str | None] = mapped_column(String(120))
     department_id_at_time: Mapped[int | None] = mapped_column(ForeignKey("departments.id"))

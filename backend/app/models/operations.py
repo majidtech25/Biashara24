@@ -1,8 +1,9 @@
 """Restaurant production, inventory documents and cashier accountability."""
+from decimal import Decimal
 from datetime import datetime
 from sqlalchemy import DateTime, Float, ForeignKey, JSON, String, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
-from ..database import Base
+from ..database import Money, Base
 from .user import now
 
 
@@ -84,9 +85,9 @@ class CashShift(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     cashier_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     active_cashier_id: Mapped[int | None] = mapped_column(unique=True)
-    opening_float: Mapped[float] = mapped_column(Float)
-    counted_cash: Mapped[float | None] = mapped_column(Float)
-    expected_cash: Mapped[float | None] = mapped_column(Float)
+    opening_float: Mapped[Decimal] = mapped_column(Money)
+    counted_cash: Mapped[Decimal | None] = mapped_column(Money)
+    expected_cash: Mapped[Decimal | None] = mapped_column(Money)
     variance_reason: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(20), default='open')
     opened_at: Mapped[datetime] = mapped_column(DateTime, default=now)
@@ -99,7 +100,7 @@ class TillMovement(Base):
     __tablename__ = 'till_movements'
     id: Mapped[int] = mapped_column(primary_key=True)
     shift_id: Mapped[int] = mapped_column(ForeignKey('cash_shifts.id'))
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Money)
     reason: Mapped[str] = mapped_column(String(500))
     recorded_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
@@ -111,7 +112,7 @@ class Refund(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     payment_id: Mapped[int] = mapped_column(ForeignKey('payments.id'))
     shift_id: Mapped[int | None] = mapped_column(ForeignKey('cash_shifts.id'))
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Money)
     reason: Mapped[str] = mapped_column(String(500))
     reference: Mapped[str | None] = mapped_column(String(100))
     recorded_by: Mapped[int] = mapped_column(ForeignKey('users.id'))

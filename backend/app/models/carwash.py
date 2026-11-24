@@ -1,7 +1,8 @@
+from decimal import Decimal
 from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from ..database import Base
+from ..database import Money, Base
 from .user import now
 
 class CarWashBay(Base):
@@ -17,7 +18,7 @@ class CarWashService(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
     description: Mapped[str | None] = mapped_column(Text)
-    price: Mapped[float] = mapped_column(Float)
+    price: Mapped[Decimal] = mapped_column(Money)
     duration_minutes: Mapped[int] = mapped_column(Integer, default=30)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
@@ -33,7 +34,7 @@ class CarWashTransaction(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     vehicle_plate: Mapped[str] = mapped_column(String(20), index=True)
     payment_method: Mapped[str] = mapped_column(String(20))
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Money)
     payment_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)

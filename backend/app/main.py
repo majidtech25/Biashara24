@@ -8,7 +8,7 @@ from .config import get_settings
 from .migrations import upgrade
 from .services.audit import request_ip
 from .database import Base,SessionLocal,engine
-from .services.seed_accounts import seed_company_accounts
+from .services.seed_accounts import disable_default_accounts, seed_company_accounts
 from .models import Category,Department,User
 from .routes import admin,auth,carwash,dashboard,orders,payments,reports,stock,menu_images,operations,cash_office
 
@@ -17,6 +17,14 @@ def seed():
     with SessionLocal() as db:
         if settings.environment != "production":
             seed_company_accounts(db)
+        else:
+            disabled = disable_default_accounts(db)
+            if disabled:
+                import logging
+                logging.getLogger("biashara360").error(
+                    "Deactivated accounts still using their default development password: %s. "
+                    "Create a director with 'python -m app.ops create-admin', then set new passwords "
+                    "for these accounts in staff administration before reactivating them.", ", ".join(disabled))
         for name in ("Food","Drinks"):
             if not db.scalar(select(Category).where(Category.name==name)):db.add(Category(name=name))
         for name in ("Kitchen","Barista","Pastry"):
@@ -41,13 +49,14 @@ def health():return {"status":"ok","service":settings.app_name}
 
 @app.get('/ready',tags=['System'])
 def ready():
+    """Readiness: the database answers and its schema is at the newest revision."""
+    from .migrations import current_revision, head_revision
     try:
         with engine.connect() as connection:
             connection.execute(text('SELECT 1'))
-            version=connection.execute(text('SELECT max(version) FROM schema_versions')).scalar()
-        from .migrations import VERSION
-        if version != VERSION:return JSONResponse(status_code=503,content={'status':'not_ready'})
-        return {'status':'ready','schema_version':version}
+            revision=current_revision(connection)
+        if revision != head_revision():return JSONResponse(status_code=503,content={'status':'not_ready'})
+        return {'status':'ready','schema_revision':revision}
     except Exception:
         return JSONResponse(status_code=503,content={'status':'not_ready'})
 @app.exception_handler(Exception)

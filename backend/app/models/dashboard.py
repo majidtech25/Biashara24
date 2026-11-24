@@ -1,8 +1,9 @@
 """Live reports remain authoritative; snapshots and audit history are persisted."""
+from decimal import Decimal
 from datetime import date, datetime
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
-from ..database import Base
+from ..database import Money, Base
 from .user import now
 
 class DailySummary(Base):
@@ -10,13 +11,13 @@ class DailySummary(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     summary_date: Mapped[date] = mapped_column(Date, unique=True)
     restaurant_orders_count: Mapped[int] = mapped_column(Integer, default=0)
-    restaurant_revenue: Mapped[float] = mapped_column(Float, default=0)
-    restaurant_cash: Mapped[float] = mapped_column(Float, default=0)
-    restaurant_mpesa: Mapped[float] = mapped_column(Float, default=0)
+    restaurant_revenue: Mapped[Decimal] = mapped_column(Money, default=0)
+    restaurant_cash: Mapped[Decimal] = mapped_column(Money, default=0)
+    restaurant_mpesa: Mapped[Decimal] = mapped_column(Money, default=0)
     carwash_count: Mapped[int] = mapped_column(Integer, default=0)
-    carwash_revenue: Mapped[float] = mapped_column(Float, default=0)
-    carwash_cash: Mapped[float] = mapped_column(Float, default=0)
-    carwash_mpesa: Mapped[float] = mapped_column(Float, default=0)
+    carwash_revenue: Mapped[Decimal] = mapped_column(Money, default=0)
+    carwash_cash: Mapped[Decimal] = mapped_column(Money, default=0)
+    carwash_mpesa: Mapped[Decimal] = mapped_column(Money, default=0)
     low_stock_items: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)

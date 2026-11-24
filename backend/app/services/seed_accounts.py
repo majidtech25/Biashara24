@@ -1,7 +1,7 @@
 ﻿"""Initial company accounts, created only when their email is not present."""
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from ..middleware.auth import hash_password
+from ..middleware.auth import hash_password, verify_password
 from ..models import User
 
 INITIAL_ACCOUNTS = (
@@ -19,3 +19,19 @@ def seed_company_accounts(db: Session) -> None:
         if not db.scalar(select(User).where(User.username == email)):
             db.add(User(username=email, password_hash=hash_password(password), role=role, full_name=name))
     # The caller commits. Existing accounts and changed passwords are preserved.
+
+
+def disable_default_accounts(db: Session) -> list[str]:
+    """Production safety: deactivate initial accounts that still use their published password.
+
+    Returns the affected emails. Accounts whose password was changed are left alone.
+    The caller commits.
+    """
+    disabled = []
+    for _role, email, password, _name in INITIAL_ACCOUNTS:
+        user = db.scalar(select(User).where(User.username == email))
+        if user and user.active and verify_password(password, user.password_hash):
+            user.active = False
+            user.token_version += 1  # end any open sessions
+            disabled.append(email)
+    return disabled

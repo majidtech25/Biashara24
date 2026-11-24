@@ -1,6 +1,7 @@
 """Transactional order additions, idempotency and reviewed corrections."""
 import hashlib
 import json
+from ..database import _json_default
 from decimal import Decimal, ROUND_HALF_UP
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -15,10 +16,10 @@ def amount(value):
     return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 def recalculate(order):
-    order.total = float(sum((amount(i.price_at_time) * (i.quantity-i.voided_quantity) for i in order.items), Decimal("0.00")))
+    order.total = (sum((amount(i.price_at_time) * (i.quantity-i.voided_quantity) for i in order.items), Decimal("0.00")))
 
 def replay(db, user, key, operation, payload):
-    digest = hashlib.sha256(json.dumps({"operation":operation,"payload":payload}, sort_keys=True).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps({"operation":operation,"payload":payload}, sort_keys=True, default=_json_default).encode()).hexdigest()
     prior = db.scalar(select(BillSubmission).where(BillSubmission.user_id == user.id, BillSubmission.key == key))
     if prior:
         if prior.fingerprint != digest:
@@ -45,7 +46,7 @@ def append_lines(db, order, lines):
     entries = []
     for line in lines:
         item = menu[line.menu_item_id]
-        entry = OrderItem(menu_item_id=item.id, quantity=line.quantity, price_at_time=float(amount(item.price)), tax_rate_at_time=item.tax_rate, voided_quantity=0,
+        entry = OrderItem(menu_item_id=item.id, quantity=line.quantity, price_at_time=amount(item.price), tax_rate_at_time=item.tax_rate, voided_quantity=0,
                           name_at_time=item.name, department_id_at_time=item.department_id,
                           department_name_at_time=item.department.name)
         order.items.append(entry); db.flush()
@@ -60,6 +61,10 @@ def create(db, user, data, key):
     fingerprint, previous = replay(db,user,key,"create",data.model_dump())
     if previous: return previous, None
     table = db.scalar(select(DiningTable).where(DiningTable.id == data.table_id).with_for_update())
+    # A retry with the same key may have committed while this request waited for the lock
+    # (PostgreSQL row locks; SQLite already serializes whole writes).
+    fingerprint, previous = replay(db,user,key,"create",data.model_dump())
+    if previous: return previous, None
     if not table or not table.is_active: raise HTTPException(400, "Select an active table.")
     if db.get(TableReservation, table.id): raise HTTPException(409, "This table already has an active bill.")
     order = Order(order_number=new_order_number(), waiter_id=user.id, customer=data.customer, notes=data.notes,
@@ -75,6 +80,10 @@ def create(db, user, data, key):
     return order, submission
 
 def add(db, user, identity, data, key):
+    fingerprint, previous = replay(db,user,key,"add:"+str(identity),data.model_dump())
+    if previous: return previous, None
+    bill(db,identity,user)  # lock the bill before checking the key again
+    # A retry with the same key may have committed while this request waited for the lock.
     fingerprint, previous = replay(db,user,key,"add:"+str(identity),data.model_dump())
     if previous: return previous, None
     order = bill(db,identity,user,data.expected_version); editable(db,order)
