@@ -1,15 +1,17 @@
 """Live reports remain authoritative; snapshots and audit history are persisted."""
 from decimal import Decimal
 from datetime import date, datetime
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, JSON, String
+from sqlalchemy import UniqueConstraint, Date, DateTime, Float, ForeignKey, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 from ..database import Money, Base
+from .branch import BranchScoped
 from .user import now
 
-class DailySummary(Base):
+class DailySummary(BranchScoped, Base):
     __tablename__ = "daily_summaries"
+    __table_args__ = (UniqueConstraint("branch_id", "summary_date", name="uq_daily_summary_branch_date"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    summary_date: Mapped[date] = mapped_column(Date, unique=True)
+    summary_date: Mapped[date] = mapped_column(Date)
     restaurant_orders_count: Mapped[int] = mapped_column(Integer, default=0)
     restaurant_revenue: Mapped[Decimal] = mapped_column(Money, default=0)
     restaurant_cash: Mapped[Decimal] = mapped_column(Money, default=0)

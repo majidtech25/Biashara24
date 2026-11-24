@@ -9,12 +9,14 @@ from .migrations import upgrade
 from .services.audit import request_ip
 from .database import Base,SessionLocal,engine
 from .services.seed_accounts import disable_default_accounts, seed_company_accounts
-from .models import Category,Department,User
-from .routes import admin,auth,carwash,dashboard,orders,payments,reports,stock,menu_images,operations,cash_office
+from .models import Branch,Category,Department,User
+from .routes import branches,admin,auth,carwash,dashboard,orders,payments,reports,stock,menu_images,operations,cash_office
 
 settings=get_settings()
 def seed():
     with SessionLocal() as db:
+        if not db.scalar(select(Branch).limit(1)):
+            db.add(Branch(name="Main branch", code="MAIN"));db.flush()
         if settings.environment != "production":
             seed_company_accounts(db)
         else:
@@ -43,7 +45,7 @@ async def audit_request_context(request:Request,call_next):
     finally:
         request_ip.reset(token)
 app.add_middleware(CORSMiddleware,allow_origins=settings.origins,allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
-for router in (auth.router,orders.router,payments.router,stock.router,carwash.router,dashboard.router,admin.router,reports.router,menu_images.router,operations.router,cash_office.router):app.include_router(router)
+for router in (branches.router,auth.router,orders.router,payments.router,stock.router,carwash.router,dashboard.router,admin.router,reports.router,menu_images.router,operations.router,cash_office.router):app.include_router(router)
 @app.get("/health",tags=["System"])
 def health():return {"status":"ok","service":settings.app_name}
 

@@ -15,9 +15,12 @@ INITIAL_ACCOUNTS = (
 
 
 def seed_company_accounts(db: Session) -> None:
+    from ..models import Branch
+    home = db.scalar(select(Branch).order_by(Branch.id).limit(1))
     for role, email, password, name in INITIAL_ACCOUNTS:
         if not db.scalar(select(User).where(User.username == email)):
-            db.add(User(username=email, password_hash=hash_password(password), role=role, full_name=name))
+            db.add(User(username=email, password_hash=hash_password(password), role=role, full_name=name,
+                        branch_id=None if role == "director" else home.id))
     # The caller commits. Existing accounts and changed passwords are preserved.
 
 

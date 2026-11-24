@@ -4,12 +4,13 @@ from datetime import datetime
 from sqlalchemy import DateTime, Float, ForeignKey, JSON, String, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from ..database import Money, Base
+from .branch import BranchScoped
 from .user import now
 
 
-class Recipe(Base):
+class Recipe(BranchScoped, Base):
     __tablename__ = 'recipes'
-    __table_args__ = (UniqueConstraint('menu_item_id', 'version'),)
+    __table_args__ = (UniqueConstraint('branch_id', 'menu_item_id', 'version', name='uq_recipe_branch_item_version'),)
     id: Mapped[int] = mapped_column(primary_key=True)
     menu_item_id: Mapped[int] = mapped_column(ForeignKey('menu_items.id'))
     version: Mapped[int] = mapped_column()
@@ -18,14 +19,14 @@ class Recipe(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
-class StockReservation(Base):
+class StockReservation(BranchScoped, Base):
     __tablename__ = 'stock_reservations'
     order_item_id: Mapped[int] = mapped_column(ForeignKey('order_items.id'), primary_key=True)
     ingredient_id: Mapped[int] = mapped_column(ForeignKey('ingredients.id'), primary_key=True)
     quantity: Mapped[float] = mapped_column(Float)
 
 
-class KitchenLine(Base):
+class KitchenLine(BranchScoped, Base):
     __tablename__ = 'kitchen_lines'
     order_item_id: Mapped[int] = mapped_column(ForeignKey('order_items.id'), primary_key=True)
     status: Mapped[str] = mapped_column(String(20), default='pending')
@@ -36,7 +37,7 @@ class KitchenLine(Base):
     served_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
-class FoodWaste(Base):
+class FoodWaste(BranchScoped, Base):
     __tablename__ = 'food_waste'
     id: Mapped[int] = mapped_column(primary_key=True)
     order_item_id: Mapped[int] = mapped_column(ForeignKey('order_items.id'))
@@ -65,7 +66,7 @@ class Supplier(Base):
     active: Mapped[bool] = mapped_column(default=True)
 
 
-class StockDocument(Base):
+class StockDocument(BranchScoped, Base):
     __tablename__ = 'stock_documents'
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(String(20))
@@ -80,7 +81,7 @@ class StockDocument(Base):
     posted_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
-class CashShift(Base):
+class CashShift(BranchScoped, Base):
     __tablename__ = 'cash_shifts'
     id: Mapped[int] = mapped_column(primary_key=True)
     cashier_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
@@ -96,7 +97,7 @@ class CashShift(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
-class TillMovement(Base):
+class TillMovement(BranchScoped, Base):
     __tablename__ = 'till_movements'
     id: Mapped[int] = mapped_column(primary_key=True)
     shift_id: Mapped[int] = mapped_column(ForeignKey('cash_shifts.id'))
@@ -106,7 +107,7 @@ class TillMovement(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
-class Refund(Base):
+class Refund(BranchScoped, Base):
     __tablename__ = 'refunds'
     __table_args__ = (Index('ux_refund_reference', 'reference', unique=True),)
     id: Mapped[int] = mapped_column(primary_key=True)

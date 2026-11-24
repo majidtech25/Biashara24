@@ -13,6 +13,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), index=True)
     department_id: Mapped[int | None] = mapped_column(ForeignKey('departments.id'))
+    # Home branch. Directors have none and can see every branch.
+    branch_id: Mapped[int | None] = mapped_column(ForeignKey('branches.id'), index=True)
     full_name: Mapped[str | None] = mapped_column(String(120))
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     email: Mapped[str | None] = mapped_column(String(150))

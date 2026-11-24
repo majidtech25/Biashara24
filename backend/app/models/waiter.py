@@ -3,12 +3,14 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from ..database import Base
+from .branch import BranchScoped
 from .user import now
 
-class DiningTable(Base):
+class DiningTable(BranchScoped, Base):
     __tablename__ = "dining_tables"
+    __table_args__ = (UniqueConstraint("branch_id", "number", name="uq_dining_table_branch_number"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    number: Mapped[int] = mapped_column(Integer, unique=True)
+    number: Mapped[int] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 class TableReservation(Base):
@@ -37,7 +39,7 @@ class BillSubmission(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"))
     batch_id: Mapped[int] = mapped_column(ForeignKey("order_batches.id"))
 
-class BillChangeRequest(Base):
+class BillChangeRequest(BranchScoped, Base):
     __tablename__ = "bill_change_requests"
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)

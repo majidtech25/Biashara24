@@ -73,13 +73,42 @@ def upgrade(engine):
         legacy_upgrade(engine, backup=False)
         with engine.begin() as connection:
             command.stamp(alembic_config(connection), LEGACY_REVISION)
-        with engine.begin() as connection:
-            command.upgrade(alembic_config(connection), "head")
+        _run_revisions(engine)
         return
     with engine.connect() as connection:
         current = current_revision(connection)
     if current == head:
         return
     _backup_sqlite(engine, f"alembic-{current}")
-    with engine.begin() as connection:
-        command.upgrade(alembic_config(connection), "head")
+    _run_revisions(engine)
+
+
+def _run_revisions(engine):
+    """Apply pending Alembic revisions in one transaction.
+
+    SQLite cannot alter constraints in place, so some revisions rebuild tables. That
+    requires foreign-key enforcement to be off during the upgrade (it cannot be changed
+    inside a transaction); the result is checked and the previous setting restored.
+    """
+    with engine.connect() as connection:
+        sqlite = engine.dialect.name == "sqlite"
+        existing = set()
+        enforced = 0
+        if sqlite:
+            enforced = connection.exec_driver_sql("PRAGMA foreign_keys").scalar()
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            # Broken links that were already there are not this upgrade's doing.
+            existing = {tuple(row) for row in connection.exec_driver_sql("PRAGMA foreign_key_check").all()}
+            connection.commit()
+        try:
+            with connection.begin():
+                command.upgrade(alembic_config(connection), "head")
+                if sqlite:
+                    problems = [tuple(row) for row in connection.exec_driver_sql("PRAGMA foreign_key_check").all()
+                                if tuple(row) not in existing]
+                    if problems:
+                        raise RuntimeError(f"Upgrade left broken links between records: {problems[:5]}")
+        finally:
+            if sqlite:
+                connection.exec_driver_sql(f"PRAGMA foreign_keys={'ON' if enforced else 'OFF'}")
+                connection.commit()

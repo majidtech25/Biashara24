@@ -1,8 +1,9 @@
-from datetime import date
+﻿from datetime import date
 from typing import Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from ..branching import scope,switched_off
 from ..database import get_db
 from ..middleware.auth import require_roles
 from ..models import MenuItem, Order, OrderStatusHistory, User
@@ -23,7 +24,8 @@ managers=require_roles("manager","director")
 def active_menu(search: str | None = None, db:Session=Depends(get_db), user:User=Depends(require_roles('waiter','cashier','manager','director','store_manager','kitchen'))):
     q=select(MenuItem).where(MenuItem.active.is_(True)).order_by(MenuItem.name)
     if search:q=q.where(MenuItem.name.ilike(f"%{search}%"))
-    return [menu_dict(x) for x in db.scalars(q).all() if x.category.is_active and x.department.is_active]
+    off=switched_off(db,scope(db))  # items this branch has switched off
+    return [menu_dict(x) for x in db.scalars(q).all() if x.category.is_active and x.department.is_active and x.id not in off]
 
 @router.get("/tables")
 def tables(db:Session=Depends(get_db), user:User=Depends(readers)):

@@ -104,7 +104,9 @@ def legacy_upgrade(engine, backup=True):
             conn.execute(text('ALTER TABLE payments_upgrade RENAME TO payments'))
         for table in v6_tables:
             for idx in table.indexes:
-                idx.create(conn, checkfirst=True)
+                # Only indexes on version-6 columns; later ones belong to Alembic revisions.
+                if all(c.name in LEGACY_V6_COLUMNS[table.name] for c in idx.columns):
+                    idx.create(conn, checkfirst=True)
         if engine.dialect.name == "sqlite":
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ux_wash_number ON carwash_transactions(transaction_number)"))
         conn.execute(text("CREATE TABLE IF NOT EXISTS schema_versions (version INTEGER PRIMARY KEY)"))
