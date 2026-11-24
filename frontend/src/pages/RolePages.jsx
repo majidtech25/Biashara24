@@ -11,7 +11,7 @@ import WaiterWorkspace from './WaiterWorkspace';
 import BillManagement from './BillManagement';
 import ManagerDashboard from './ManagerDashboard';
 import OrderBoard from './OrderBoard';
-import PreviewWorkspace,{Notifications,previewModules} from './PreviewWorkspace';
+import PreviewWorkspace,{previewModules} from './PreviewWorkspace';
 import {KitchenOperations,LiveNotifications,Recipes,Suppliers,StockDocuments,CashOffice,Refunds,BusinessSettings,PrinterRecovery} from './RestaurantOperations';
 
 export default function RolePage({id}){
@@ -27,16 +27,15 @@ export default function RolePage({id}){
  if(id==='printer-recovery')return <PrinterRecovery/>;
  if(user.role==='waiter')return <WaiterWorkspace key={location.pathname+location.search} page={id==='orders'?'bills':id}/>;
  if(['tables','bill-changes'].includes(id))return <BillManagement page={id}/>;
- if(['notifications','manager-notifications'].includes(id))return <Notifications/>;
  if(previewModules[id])return <PreviewWorkspace key={id} page={id}/>;
- if(['order-pipeline','kitchen'].includes(id))return <OrderBoard kitchen={id==='kitchen'}/>;
+ if(id==='order-pipeline')return <OrderBoard kitchen={false}/>;
  if(id==='overview')return <Overview/>;
  if(id==='manager-dashboard')return <ManagerDashboard/>;
- if(['orders','order-pipeline','kitchen'].includes(id))return <Orders title={id==='kitchen'?'Kitchen Operations':'Orders'}/>;
+ if(id==='orders')return <Orders title='Orders'/>;
  if(['checkout','pending-bills'].includes(id))return <CashierCheckout/>;
  if(user.role==='cashier'&&['payments','payment-ledger','cash-payment','mpesa','receipts'].includes(id))return <CashierPayments key={id} page={id}/>;
- if(['payments','manager-payments','payment-ledger','cash-payment','mpesa','receipts','shift-summary'].includes(id))return <Payments page={id}/>;
- if(['inventory','store-overview','ingredients','receive-stock','adjustments','low-stock','stock-counts','inventory-reports','stock-history'].includes(id))return <Inventory page={id} historyOnly={id==='stock-history'}/>;
+ if(['payments','manager-payments','payment-ledger','cash-payment','mpesa','receipts'].includes(id))return <Payments page={id}/>;
+ if(['inventory','store-overview','ingredients','receive-stock','adjustments','low-stock','inventory-reports','stock-history'].includes(id))return <Inventory page={id} historyOnly={id==='stock-history'}/>;
  if(['car-wash','wash-overview','new-wash','wash-payments','cashier-carwash','wash-history','pending-wash-payments','wash-summary','wash-reports','active-bays'].includes(id))return <Carwash page={id}/>;
  if(['reports','manager-reports'].includes(id))return <Reports/>;
  const config={menu:['menu','Menu Management'],management:['users','Staff accounts'],staff:['users','Staff Management'],departments:['departments','Departments'],categories:['categories','Categories'],printers:['printers','Printer Management'],'bay-config':['bays','Wash Bays'],'service-types':['services','Wash Services'],audit:['audits','Audit History']}[id];
