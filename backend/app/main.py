@@ -13,6 +13,8 @@ from .models import Branch,Category,Department,User
 from .routes import branches,admin,auth,carwash,dashboard,orders,payments,reports,stock,menu_images,operations,cash_office
 
 settings=get_settings()
+from . import monitoring
+monitoring.setup()
 def seed():
     with SessionLocal() as db:
         if not db.scalar(select(Branch).limit(1)):
