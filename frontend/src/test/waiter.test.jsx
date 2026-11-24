@@ -179,3 +179,18 @@ it('explains a table becoming occupied and lets the waiter choose another table'
  fireEvent.click(screen.getByRole('button',{name:'Review order'}));
  expect(screen.getByRole('dialog',{name:'Review order'})).toHaveTextContent('Table 3');
 });
+
+it('sends a takeaway order without a table',async()=>{
+ open('/waiter/new-order');
+ fireEvent.click(await screen.findByRole('button',{name:/Takeaway/}));
+ fireEvent.change(screen.getByLabelText('Customer name (optional)'),{target:{value:'Amina'}});
+ fireEvent.click(await screen.findByRole('button',{name:'Add one Tea'}));
+ expect(screen.getAllByText('Takeaway · Amina').length).toBeGreaterThan(0);
+ fireEvent.click(screen.getByRole('button',{name:'Review order'}));
+ fireEvent.click(screen.getByRole('button',{name:'Submit order'}));
+ await screen.findByRole('heading',{name:'Bill B-11'});
+ const post=mock.mock.calls.find(([url,o])=>o?.method==='POST'&&new URL(url).pathname==='/api/orders');
+ const body=JSON.parse(post[1].body);
+ expect(body).toMatchObject({order_type:'takeaway',customer:'Amina',items:[{menu_item_id:1,quantity:1}]});
+ expect(body.table_id).toBeUndefined();
+});

@@ -29,7 +29,7 @@ def revenue(db, start, end):
 def top_items(db, start, end, limit=5):
     historical_name = func.coalesce(OrderItem.name_at_time, MenuItem.name)
     rows = db.execute(select(historical_name, func.sum(OrderItem.quantity - OrderItem.voided_quantity), func.sum((OrderItem.quantity - OrderItem.voided_quantity) * OrderItem.price_at_time))
-        .select_from(MenuItem).join(OrderItem, OrderItem.menu_item_id == MenuItem.id).join(Payment, Payment.order_id == OrderItem.order_id)
+        .select_from(MenuItem).join(OrderItem, OrderItem.menu_item_id == MenuItem.id).join(Payment, Payment.active_order_id == OrderItem.order_id)  # one row per paid bill, even when paid in parts
         .where(Payment.status == "completed", Payment.completed_at >= start, Payment.completed_at < end)
         .group_by(MenuItem.id, historical_name).order_by(func.sum(OrderItem.quantity - OrderItem.voided_quantity).desc(), historical_name).limit(limit)).all()
     return [{"item": r[0], "quantity": r[1], "revenue": money(r[2])} for r in rows]
@@ -111,7 +111,8 @@ def profit_vat(db, first, last):
     start, end = date_window(first)[0], date_window(last)[1]
     cents = lambda v: float(Decimal(v).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
-    paid = db.execute(select(Payment.id, Payment.order_id, Payment.amount).where(
+    # A bill's sales count when the payment that finishes it is confirmed (bills can be paid in parts).
+    paid = db.execute(select(Payment.id, Payment.order_id, Payment.amount).where(Payment.active_order_id.is_not(None),
         Payment.status == "completed", Payment.completed_at >= start, Payment.completed_at < end)).all()
     order_ids = sorted({p.order_id for p in paid})
     lines = db.scalars(select(OrderItem).where(OrderItem.order_id.in_(order_ids))).all() if order_ids else []

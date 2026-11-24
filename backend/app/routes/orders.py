@@ -8,7 +8,7 @@ from ..database import get_db
 from ..middleware.auth import require_roles
 from ..models import MenuItem, Order, OrderStatusHistory, User
 from ..models.waiter import DiningTable, TableReservation, BillChangeRequest
-from ..schemas import (OrderCreate, OrderUpdate, OrderAddition, ChangeCreate, ChangeDecision, TableCreate, TableUpdate)
+from ..schemas import (OrderCreate, OrderUpdate, OrderAddition, ChangeCreate, ChangeDecision, TableCreate, TableUpdate, SplitBill)
 from ..utils.helpers import date_window, order_dict, menu_dict
 from ..services.order_services import can_transition
 from ..services import bill_workflow as workflow
@@ -97,6 +97,13 @@ def add_items(order_id:int,data:OrderAddition,idempotency_key:str=Header(min_len
     workflow.deliver(db,order,submission)
     return order_dict(order)
 
+@router.post("/orders/{order_id}/split",status_code=201)
+def split_bill(order_id:int,data:SplitBill,db:Session=Depends(get_db),user:User=Depends(readers)):
+    """Move items to a new bill. Returns both bills."""
+    start_write(db)
+    order,new=workflow.split(db,user,order_id,data)
+    return {"original":order_dict(order),"new":order_dict(new)}
+
 @router.post("/orders/{order_id}/change-requests",status_code=201)
 def request_change(order_id:int,data:ChangeCreate,db:Session=Depends(get_db),user:User=Depends(writers)):
     start_write(db)
@@ -133,7 +140,8 @@ def update_order(order_id:int,data:OrderUpdate,db:Session=Depends(get_db),user:U
         raise HTTPException(409, 'Start preparation from the kitchen screen so recipe stock is deducted correctly.')
     from ..models import Payment
     payment=db.scalar(select(Payment).where(Payment.order_id==order.id, Payment.status != 'rejected'))
-    if data.status in {"cleared","completed"} and (not payment or payment.status!="completed"):
+    from ..services.payment_services import balance
+    if data.status in {"cleared","completed"} and (not payment or balance(db,order)[1:]!=(0,0)):
         raise HTTPException(409,"Confirm payment before clearing the order")
     if payment and data.status not in {"cleared","completed"}:raise HTTPException(409,"A recorded payment locks the bill")
     order.status=data.status;order.version+=1

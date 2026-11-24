@@ -1,6 +1,7 @@
 """Records money received. Cash and Paybill payments Safaricom reported are confirmed at entry;
 other cashless references are confirmed by staff."""
 from datetime import date, datetime
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -59,10 +60,17 @@ def clear_order(order_id: int, data: PaymentCreate, db: Session = Depends(get_db
     if pending(db,order.id):
         raise HTTPException(409,"Resolve pending change requests before recording payment.")
     if order.status == "cancelled": raise HTTPException(409, "Cancelled orders cannot be paid")
-    if db.scalar(select(Payment).where(Payment.order_id == order_id, Payment.status != 'rejected')):
+    # A bill can be paid in parts (several people, or part cash and part M-Pesa). Each part
+    # may be at most what is left; the part that pays the rest closes the bill.
+    from ..services.payment_services import balance
+    _, _, left = balance(db, order)
+    if left <= 0:
         raise HTTPException(409, "A payment is already recorded for this order")
-    if not matches_order_total(data.amount, order.total):
-        raise HTTPException(400, f"Payment must equal order total of {order.total:.2f}")
+    amount_in = Decimal(str(data.amount)).quantize(Decimal("0.01"))
+    if amount_in > left or (amount_in < left and not data.part_payment):
+        raise HTTPException(400, f"Payment must equal order total of {order.total:.2f}" if left == Decimal(str(order.total)).quantize(Decimal("0.01"))
+                            else f"KES {left:,.2f} is left to pay on this bill. Enter that amount, or mark this as a part payment.")
+    final = amount_in == left
     reference = data.reference.upper().strip() if data.reference else None
     if data.method == "m-pesa" and not reference:
         raise HTTPException(400, "Enter the cashless receipt reference")
@@ -82,19 +90,22 @@ def clear_order(order_id: int, data: PaymentCreate, db: Session = Depends(get_db
     from ..utils.helpers import order_dict
     from fastapi.encoders import jsonable_encoder
     snapshot = order_dict(order)
-    payment = Payment(order_id=order.id, active_order_id=order.id, amount=data.amount, method=data.method,
+    # Only the payment that completes the bill holds active_order_id, so the database still
+    # refuses two payments that each claim to finish the same bill.
+    payment = Payment(order_id=order.id, active_order_id=order.id if final else None, amount=data.amount, method=data.method,
                       shift_id=shift.id if shift else None, recorded_by=user.id,
                       tendered_amount=tendered if is_cash else None, change_amount=money(tendered-data.amount) if is_cash else None,
                       receipt_snapshot=jsonable_encoder({k: snapshot[k] for k in ('order_number','table_number','waiter','items','tax_summary','total')} | {'business': business.values if business else {'business_name':'Biashara360'}}),
                       status="completed" if completed else "pending", reference=reference, notes=data.notes,
                       verified_by=user.id if completed else None, completed_at=now if completed else None)
-    order.status = "cleared" if completed else "payment_pending"
-    order.cleared_at = now if completed else None
     order.version += 1
-    if completed: release_table(db,order)
-    db.add(payment); db.add(OrderStatusHistory(order_id=order.id, status=order.status, changed_by=user.id))
+    db.add(payment)
     try:
         db.flush()
+        from ..services.payment_services import settle
+        if not settle(db, order, user.id) and final and order.status != "payment_pending":
+            order.status = "payment_pending"  # the rest is paid, waiting for a receipt to be confirmed
+            db.add(OrderStatusHistory(order_id=order.id, status=order.status, changed_by=user.id))
         if data.method == 'm-pesa': reserve_receipt(db, reference, 'payment', payment.id)
         if paybill is not None: paybill.payment_id = payment.id
         record(db, user, "record", "payments", payment.id, after={"amount": payment.amount, "status": payment.status})
@@ -134,9 +145,10 @@ def reject(payment_id: int, data: PaymentRejection, db: Session = Depends(get_db
     reservation = db.get(ExternalReceipt, payment.reference)
     if reservation and reservation.source == 'payment' and reservation.source_id == payment.id:
         db.delete(reservation)
-    order.status = 'ready' if all(i.ready for i in order.items if i.quantity > i.voided_quantity) else 'pending'
+    if order.status == 'payment_pending':
+        order.status = 'ready' if all(i.ready for i in order.items if i.quantity > i.voided_quantity) else 'pending'
+        db.add(OrderStatusHistory(order_id=order.id, status=order.status, changed_by=user.id))
     order.version += 1
-    db.add(OrderStatusHistory(order_id=order.id, status=order.status, changed_by=user.id))
     record(db, user, 'reject', 'payments', payment.id, before={'status': 'pending'},
            after={'status': 'rejected', 'reason': data.reason, 'reference': payment.reference})
     db.commit()
@@ -154,10 +166,9 @@ def verify(payment_id: int, db: Session = Depends(get_db), user: User = Depends(
     paybill = claim(db, payment.reference, payment.amount, payment.order.branch_id, order_id=payment.order_id)
     if paybill is not None: paybill.payment_id = payment.id
     payment.status = "completed"; payment.completed_at = datetime.utcnow(); payment.verified_by = user.id
-    payment.order.status = "cleared"; payment.order.cleared_at = payment.completed_at
     payment.order.version += 1
-    release_table(db,payment.order)
-    db.add(OrderStatusHistory(order_id=payment.order_id, status="cleared", changed_by=user.id))
+    from ..services.payment_services import settle
+    settle(db, payment.order, user.id)
     record(db, user, "manual_receipt_confirmation", "payments", payment.id,
            before={"status": "pending"}, after={"status": "completed", "reference": payment.reference})
     db.commit()

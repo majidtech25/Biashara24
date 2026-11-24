@@ -194,3 +194,14 @@ def test_without_keys_the_bill_still_shows_the_paybill(monkeypatch):
             assert c.post(f"/api/c2b/{TOKEN}/confirmation", json={}).status_code == 404
     finally:
         get_settings.cache_clear()
+
+
+def test_part_paid_bill_shows_what_is_left(daraja):
+    with TestClient(app) as c:
+        director = login(c)
+        order = new_order(c, director)
+        r = c.post(f"/api/orders/{order['id']}/clear", headers=director, json={"expected_version": order["version"], "amount": 120,
+                   "method": "cash", "part_payment": True})
+        assert r.status_code == 201, r.text
+        bill = c.get(f"/api/paybill/bill?order_id={order['id']}", headers=director).json()
+        assert bill["amount"] == 200 and daraja.bodies("qrcode/v1/generate")[-1]["Amount"] == 200
