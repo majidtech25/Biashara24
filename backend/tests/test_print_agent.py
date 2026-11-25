@@ -1,3 +1,4 @@
+from conftest import waiter_headers
 """The branch print program: tickets wait on the server, the program collects, prints and reports."""
 import importlib.util
 from pathlib import Path
@@ -29,7 +30,7 @@ class Through:
 
 
 def order(c, h, menu):
-    r = c.post('/api/orders', headers={**h, 'Idempotency-Key': uuid4().hex},
+    r = c.post('/api/orders', headers={**waiter_headers(c), 'Idempotency-Key': uuid4().hex},
                json={'table_id': new_table(c, h), 'items': [{'menu_item_id': menu['id'], 'quantity': 2}]})
     assert r.status_code == 201, r.text
     return r.json()

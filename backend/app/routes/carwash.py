@@ -87,18 +87,21 @@ def create(data: CarWashCreate, db: Session = Depends(get_db), user: User = Depe
     start_write(db)
     submission, replay = begin_submission(db, user, idempotency_key, 'carwash:create', data.model_dump())
     if replay is not None: return replay
-    for model, identity in ((CarWashBay, data.bay_id), (CarWashService, data.service_id)):
-        item = db.get(model, identity) if identity else None
-        if not item or not item.is_active: raise HTTPException(400, "Select an active bay and service")
-    service = db.get(CarWashService, data.service_id)
+    # Quick sale at the car wash POS (Majid, 2026-11-25): number plate, amount and payment method only.
+    quick = data.bay_id is None and data.service_id is None
+    if not quick:
+        for model, identity in ((CarWashBay, data.bay_id), (CarWashService, data.service_id)):
+            item = db.get(model, identity) if identity else None
+            if not item or not item.is_active: raise HTTPException(400, "Select an active bay and service")
+    service = db.get(CarWashService, data.service_id) if not quick else None
     from ..services.cash_office import shift_for_payment
     shift = shift_for_payment(db, user)
-    if money(data.amount) != money(service.price): raise HTTPException(400, "Amount must match the service price")
+    if service and money(data.amount) != money(service.price): raise HTTPException(400, "Amount must match the service price")
     if data.payment_method == "m-pesa" and not data.mpesa_reference and not data.pay_later: raise HTTPException(400, "Cashless receipt reference is required")
-    if busy_wash(db, data.bay_id): raise HTTPException(409, "This bay already has a car. Finish that wash or choose another bay.")
+    if not quick and busy_wash(db, data.bay_id): raise HTTPException(409, "This bay already has a car. Finish that wash or choose another bay.")
     if data.attendant_id: active_attendant(db, data.attendant_id)
     values = data.model_dump(exclude={"pay_later"})
-    values["wash_status"] = "waiting"
+    values["wash_status"] = "done" if quick else "waiting"  # a quick sale records a finished wash
     # A cashless entry awaits manual confirmation, unless Safaricom already reported the receipt.
     from ..services.mpesa import claim
     from ..branching import require_branch
@@ -106,8 +109,9 @@ def create(data: CarWashCreate, db: Session = Depends(get_db), user: User = Depe
     if data.payment_method == "m-pesa" and paybill is None: values["payment_status"] = "pending"
     else: values['payment_status'] = 'completed'
     x = CarWashTransaction(**values, transaction_number="CW-" + uuid4().hex[:12].upper(),
-          shift_id=shift.id if shift else None, service_name_at_time=service.name,
+          shift_id=shift.id if shift else None, service_name_at_time=service.name if service else "Car wash",
           created_by=user.id, completed_at=datetime.utcnow() if values["payment_status"] == "completed" else None)
+    if quick: x.wash_finished_at = now()
     db.add(x); db.flush()
     if data.payment_method == 'm-pesa' and data.mpesa_reference: x.mpesa_reference = reserve_receipt(db, data.mpesa_reference, 'carwash', x.id)
     if paybill is not None: paybill.carwash_id = x.id

@@ -292,3 +292,41 @@ a{color:inherit;text-decoration:none}button,a,input,select{ -webkit-tap-highligh
  .designation-heading h1{font-size:28px}
  .login-form-wrap h2{font-size:24px}
 }
+
+/* Role picker: cards rise in one after another, and the icon lifts on hover. */
+@keyframes designation-rise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+.designation-card{animation:designation-rise .55s cubic-bezier(.2,.7,.2,1) both}
+.designation-card:nth-child(1){animation-delay:.05s}.designation-card:nth-child(2){animation-delay:.12s}.designation-card:nth-child(3){animation-delay:.19s}
+.designation-card:nth-child(4){animation-delay:.26s}.designation-card:nth-child(5){animation-delay:.33s}.designation-card:nth-child(6){animation-delay:.40s}.designation-card:nth-child(7){animation-delay:.47s}
+.designation-icon{transition:transform .25s cubic-bezier(.2,.7,.2,1)}
+.designation-card:hover .designation-icon,.designation-card:focus-visible .designation-icon{transform:translateY(-2px) rotate(-6deg) scale(1.08)}
+.designation-continue svg{transition:transform .2s}
+.designation-card:hover .designation-continue svg,.designation-card:focus-visible .designation-continue svg{transform:translateX(4px)}
+@media(prefers-reduced-motion:reduce){.designation-card{animation:none}.designation-icon,.designation-continue svg{transition:none}.designation-card:hover .designation-icon,.designation-card:hover .designation-continue svg{transform:none}}
+
+/* Order pipeline as horizontal lanes: one row per stage, tickets side by side. */
+.pipeline-rows.operations-pipeline,.pipeline-rows.ticket-board{display:flex;flex-direction:column;gap:12px}
+.pipeline-rows .operations-stage{display:grid;grid-template-columns:150px minmax(0,1fr);align-items:start;padding:10px;background:linear-gradient(90deg,#edf0f2,transparent 320px)}
+.pipeline-rows .operations-stage.stage-printed{background:linear-gradient(90deg,#fff3d0,transparent 320px)}
+.pipeline-rows .operations-stage.stage-ready{background:linear-gradient(90deg,#d5f2df,transparent 320px)}
+.pipeline-rows .operations-stage.stage-payment_pending{background:linear-gradient(90deg,#dceeff,transparent 320px)}
+.pipeline-rows .operations-stage h3,.pipeline-rows .operations-stage h2{margin:0;padding:6px 4px;font-size:14px;display:block}
+.pipeline-rows .operations-tickets{display:flex;flex-direction:row;gap:10px;overflow-x:auto;max-height:none;padding:0 2px 6px;scroll-snap-type:x proximity}
+.pipeline-rows .operations-tickets .operations-ticket{flex:0 0 220px;width:220px;margin:0;scroll-snap-align:start}
+.pipeline-rows .operations-empty{padding:8px 4px}
+@media(max-width:760px){.pipeline-rows .operations-stage{grid-template-columns:1fr}}
+
+
+/* Car wash POS */
+.wash-pos{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto auto;gap:14px;align-items:end}
+.wash-pos input{font-size:18px;padding:12px}
+.wash-pos-methods{border:0;margin:0;padding:0;display:flex;gap:8px}.wash-pos-methods legend{font-size:13px;font-weight:600;margin-bottom:6px;padding:0}
+.wash-pos-methods .btn{min-width:96px;min-height:46px}.wash-pos-submit{min-height:46px}
+.wash-pos-done{margin:12px 0 0;font-weight:600;color:#1f6b4a}
+@media(max-width:900px){.wash-pos{grid-template-columns:1fr 1fr}.wash-pos-submit{grid-column:1 / -1}}
+@media(max-width:500px){.wash-pos{grid-template-columns:1fr}}
+
+/* Six accounts since the kitchen account was removed: two even rows of three (two columns on tablets). */
+.designation-card:nth-child(4){grid-column:span 2}
+@media(max-width:850px){.designation-card:nth-child(4){grid-column:auto}.designation-card:last-child{grid-column:auto}}
+@media(max-width:500px){.designation-card:last-child{grid-column:auto}}

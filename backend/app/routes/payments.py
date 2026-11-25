@@ -176,7 +176,8 @@ def verify(payment_id: int, db: Session = Depends(get_db), user: User = Depends(
 
 @router.get("/payments/daily-summary")
 def daily_summary(day: date | None = None, date_value: date | None = Query(None, alias="date"),
-                  db: Session = Depends(get_db), _=Depends(auth)):
+                  db: Session = Depends(get_db), _=Depends(require_roles("manager", "director"))):
+    """Sales summary for the day. Cashiers settle bills but do not see or print sales summaries."""
     start, end = date_window(date_value or day)
     rows = db.execute(select(Payment.method, func.sum(Payment.amount), func.count(Payment.id)).where(
         Payment.status == "completed", Payment.completed_at >= start, Payment.completed_at < end).group_by(Payment.method)).all()

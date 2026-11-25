@@ -16,8 +16,8 @@ export default function CashierPayments({page}){
  const [method,setMethod]=useState(page==='cash-payment'?'cash':page==='mpesa'?'m-pesa':''),[status,setStatus]=useState(receipts?'completed':page==='mpesa'?'pending':''),[search,setSearch]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[offset,setOffset]=useState(0),[selectedId,setSelectedId]=useState(null),[checked,setChecked]=useState(false);
  useEffect(()=>{if(selectedId!=null&&window.innerWidth<=1100)inspector.current?.scrollIntoView?.({block:'start',behavior:'smooth'})},[selectedId]);
  const params=new URLSearchParams({limit:'100',offset:String(offset),method,status_filter:status});if(from)params.set('from_date',from);if(to)params.set('to_date',to);
- const query=useLive('/api/payments?'+params),summary=useLive('/api/payments/daily-summary');
- const refresh=()=>{query.reload();summary.reload()};
+ const query=useLive('/api/payments?'+params);
+ const refresh=()=>query.reload();
  const action=useAction(refresh),rows=query.data||[];
  const visible=rows.filter(p=>[p.receipt,p.order_number,p.reference,p.table_number].join(' ').toLowerCase().includes(search.toLowerCase()));
  const selected=rows.find(p=>p.id===selectedId);
@@ -25,9 +25,7 @@ export default function CashierPayments({page}){
  const title=receipts?'Receipts':page==='mpesa'?'M-Pesa confirmations':page==='cash-payment'?'Cash payments':'Payments';
  return <div className="cashier-checkout cashier-records">
   <div className="cashier-title"><div><span className="cashier-eyebrow">{receipts?'CUSTOMER RECEIPTS':'PAYMENT ACTIVITY'}</span><h1>{title}</h1><p>{receipts?'Find, review and print saved receipts.':'Track received payments and review cashless confirmations.'}</p></div><button className="btn" onClick={refresh}><RefreshCw size={16}/>Refresh</button></div>
-  <nav className="payment-tabs" aria-label="Cashier payments"><Link to="/cashier/payment-ledger" aria-current={!receipts?'page':undefined}>Transactions</Link><Link to="/cashier/receipts" aria-current={receipts?'page':undefined}>Receipts</Link><Link to="/cashier/checkout">Go to checkout →</Link></nav>
-  <LiveState query={summary}/><div className="cashier-counters">{[['Confirmed today',summary.data?.total_revenue,true],['Cash today',summary.data?.cash_total,true],['M-Pesa today',summary.data?.mpesa_total,true],['Bills paid today',summary.data?.orders_cleared,false]].map(([label,value,currency])=><div key={label}><span>{label}</span><strong>{value==null?'—':currency?money(value):value}</strong></div>)}</div>
-  <p className="payment-period-note">Today's figures cover the business day and are independent of the filters below.</p>
+  <nav className="payment-tabs" aria-label="Cashier payments"><Link to="/cashier/payment-ledger" aria-current={!receipts?'page':undefined}>M-Pesa to confirm</Link><Link to="/cashier/receipts" aria-current={receipts?'page':undefined}>Receipts</Link><Link to="/cashier/checkout">Go to checkout →</Link></nav>
   <section className="payment-filter-panel" aria-label="Transaction filters">
    <label className="field payment-search">Search this page<div className="cashier-search"><Search size={16}/><input type="search" aria-label="Search this page" placeholder="Receipt, bill, reference or table" value={search} onChange={e=>setSearch(e.target.value)}/></div></label>
    <Field label="Method"><select value={method} onChange={e=>filter(setMethod,e.target.value)}><option value="">All methods</option><option value="cash">Cash</option><option value="m-pesa">M-Pesa</option></select></Field>

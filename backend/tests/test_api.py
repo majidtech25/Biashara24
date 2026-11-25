@@ -16,7 +16,8 @@ def test_health_and_full_sale_flow():
         menu=c.post("/api/admin/menu",json={"name":"Pilau Test","price":350,"category_id":categories["id"],"department_id":department["id"]},headers=h);assert menu.status_code==201,menu.text
         table=c.post("/api/tables",json={"number":9999},headers=h).json()
         h={**h,"Idempotency-Key":"full-sale-flow-test"}
-        order=c.post("/api/orders",json={"table_id":table["id"],"customer":"Amina","items":[{"menu_item_id":menu.json()["id"],"quantity":2}]},headers=h);assert order.status_code==201,order.text;assert order.json()["total"]==700
+        from conftest import waiter_headers
+        order=c.post("/api/orders",json={"table_id":table["id"],"customer":"Amina","items":[{"menu_item_id":menu.json()["id"],"quantity":2}]},headers={**waiter_headers(c),"Idempotency-Key":"full-sale-flow-test"});assert order.status_code==201,order.text;assert order.json()["total"]==700
         paid=c.post(f"/api/orders/{order.json()['id']}/clear",json={"expected_version":order.json()["version"],"method":"m-pesa","amount":700,"reference":"TEST123"},headers=h);assert paid.status_code==201,paid.text
         assert c.get("/api/dashboard",headers=h).status_code==200
 

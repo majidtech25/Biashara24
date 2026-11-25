@@ -1,3 +1,4 @@
+from conftest import waiter_headers
 from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
@@ -71,7 +72,7 @@ def test_menu_rename_preserves_bill_and_correction_destination():
         h = login(c)
         menu = new_menu(c, h)
         other = new_menu(c, h)
-        result = c.post('/api/orders', headers={**h, 'Idempotency-Key': uuid4().hex}, json={
+        result = c.post('/api/orders', headers={**waiter_headers(c), 'Idempotency-Key': uuid4().hex}, json={
             'table_id': new_table(c, h), 'items': [{'menu_item_id': menu['id'], 'quantity': 2}]})
         assert result.status_code == 201, result.text
         order = result.json()

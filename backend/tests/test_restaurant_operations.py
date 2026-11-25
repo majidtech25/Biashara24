@@ -1,3 +1,4 @@
+from conftest import waiter_headers
 from uuid import uuid4
 from fastapi.testclient import TestClient
 from app.main import app
@@ -73,16 +74,10 @@ def test_receiving_count_review_and_preparation_department_access():
         count = post(c, '/api/stock/documents', manager, {'kind': 'count', 'reference': uuid4().hex, 'reason': 'Closing stock count', 'lines': [{'ingredient_id': ingredient['id'], 'quantity': 11}]})
         assert c.post(f"/api/stock/documents/{count['id']}/post", headers=manager).status_code == 403
         assert post(c, f"/api/stock/documents/{count['id']}/post", director, {})['lines'][0]['delta'] == -1
+        # There is no kitchen account any more (Majid, 2026-11-25).
         menu = new_menu(c, manager)
-        username = uuid4().hex + '@example.com'
-        post(c, '/api/admin/users', manager, {'username': username, 'password': 'Kitchen123!', 'role': 'kitchen', 'department_id': menu['department_id']})
-        kitchen = login(c, username, 'Kitchen123!')
-        other = new_menu(c, manager)
-        first = post(c, '/api/orders', manager, {'table_id': new_table(c, manager), 'items': [{'menu_item_id': menu['id'], 'quantity': 1}, {'menu_item_id': other['id'], 'quantity': 1}]})
-        lines = c.get('/api/kitchen/lines', headers=kitchen).json()
-        ids = {line['order_item_id'] for line in lines}
-        assert first['items'][0]['id'] in ids and first['items'][1]['id'] not in ids
-        assert c.put(f"/api/kitchen/lines/{first['items'][1]['id']}", headers=kitchen, json={'expected_version': 1, 'status': 'preparing'}).status_code == 404
+        r = c.post('/api/admin/users', headers=manager, json={'username': uuid4().hex + '@example.com', 'password': 'Kitchen123!', 'role': 'kitchen', 'department_id': menu['department_id']})
+        assert r.status_code == 422
 
 
 def test_purchase_partial_receipts_replay_and_over_receiving():
@@ -116,7 +111,7 @@ def test_cancellation_before_preparation_releases_without_deduction():
         menu=new_menu(c,h)
         ingredient=post(c,'/api/stock/ingredients',h,{'name':uuid4().hex,'unit':'kg','min_level':0,'current_stock':1})
         post(c,'/api/recipes',h,{'menu_item_id':menu['id'],'components':[{'ingredient_id':ingredient['id'],'quantity':1}]})
-        order=post(c,'/api/orders',h,{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
+        order=post(c,'/api/orders',waiter_headers(c),{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
         assert c.delete(f"/api/orders/{order['id']}",headers=h).status_code==204
         post(c,'/api/stock/deduct',h,{'ingredient_id':ingredient['id'],'quantity':1,'reason':'Reservation released'})
 
@@ -124,7 +119,7 @@ def test_cancellation_before_preparation_releases_without_deduction():
 def test_printer_recovery_does_not_repeat_network_send(monkeypatch):
     with TestClient(app) as c:
         h=login(c);menu=new_menu(c,h)
-        order=post(c,'/api/orders',h,{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
+        order=post(c,'/api/orders',waiter_headers(c),{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
         post(c,'/api/admin/printer-config',h,{'department_id':menu['department_id'],'printer_ip':'192.168.1.80','printer_port':9100})
         from unittest.mock import Mock
         sender=Mock(return_value={'status':'uncertain','detail':'Connection interrupted'})
@@ -159,7 +154,7 @@ def test_concurrent_preparation_consumes_once():
         h=login(c);menu=new_menu(c,h)
         ingredient=post(c,'/api/stock/ingredients',h,{'name':uuid4().hex,'unit':'kg','min_level':0,'current_stock':10})
         post(c,'/api/recipes',h,{'menu_item_id':menu['id'],'components':[{'ingredient_id':ingredient['id'],'quantity':2}]})
-        order=post(c,'/api/orders',h,{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
+        order=post(c,'/api/orders',waiter_headers(c),{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
         path=f"/api/kitchen/lines/{order['items'][0]['id']}"
         with ThreadPoolExecutor(max_workers=2) as pool:
             responses=list(pool.map(lambda _:c.put(path,headers=h,json={'expected_version':1,'status':'preparing'}),range(2)))
@@ -173,7 +168,7 @@ def test_transfer_preserves_lines_and_notifies_new_waiter():
     from sqlalchemy import select
     with TestClient(app) as c:
         h=login(c);menu=new_menu(c,h)
-        order=post(c,'/api/orders',h,{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
+        order=post(c,'/api/orders',waiter_headers(c),{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
         with SessionLocal() as db: waiter_id=db.scalar(select(User.id).where(User.username=='waiter@gmail.com'))
         destination=new_table(c,h)
         transferred=post(c,f"/api/orders/{order['id']}/transfer",h,{'expected_version':order['version'],'table_id':destination,'waiter_id':waiter_id,'reason':'Service reassignment'})
@@ -181,3 +176,25 @@ def test_transfer_preserves_lines_and_notifies_new_waiter():
         tables=c.get('/api/tables',headers=h).json()
         assert next(t for t in tables if t['id']==order['table_id'])['occupied'] is False
         assert c.get('/ready').json()['status']=='ready'
+
+
+def test_ingredients_leave_stock_when_the_bill_is_paid():
+    """No kitchen screen (Majid, 2026-11-25): ingredients are held at order time and used at payment."""
+    with TestClient(app) as c:
+        manager = login(c)
+        cashier = login(c, 'cashier@gmail.com', 'cashier123')
+        waiter = waiter_headers(c)
+        menu = new_menu(c, manager, 300)
+        stock = post(c, '/api/stock/ingredients', manager, {'name': uuid4().hex, 'unit': 'kg', 'current_stock': 10, 'min_level': 0})
+        post(c, '/api/recipes', manager, {'menu_item_id': menu['id'], 'components': [{'ingredient_id': stock['id'], 'quantity': .5}]})
+        ingredient = f"/api/stock/ingredients/{stock['id']}"
+        paid = post(c, '/api/orders', waiter, {'table_id': new_table(c, manager), 'items': [{'menu_item_id': menu['id'], 'quantity': 2}]})
+        cancelled = post(c, '/api/orders', waiter, {'table_id': new_table(c, manager), 'items': [{'menu_item_id': menu['id'], 'quantity': 4}]})
+        assert c.get(ingredient, headers=manager).json()['current_stock'] == 10  # held, not used yet
+        # The manager moves the bill along the pipeline without a kitchen screen.
+        assert c.put(f"/api/orders/{paid['id']}", headers=manager, json={'status': 'printed'}).status_code == 200
+        assert c.delete(f"/api/orders/{cancelled['id']}", headers=manager).status_code in (200, 204)
+        bill = c.get(f"/api/orders/{paid['id']}", headers=cashier).json()
+        post(c, f"/api/orders/{paid['id']}/clear", cashier, {'expected_version': bill['version'], 'method': 'cash', 'amount': 600})
+        assert c.get(ingredient, headers=manager).json()['current_stock'] == 9  # 2 dishes x 0.5 kg
+        assert all(line['order_id'] != paid['id'] for line in c.get('/api/kitchen/lines', headers=manager).json())  # nothing left open

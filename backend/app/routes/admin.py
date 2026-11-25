@@ -74,7 +74,6 @@ def staff_branch(db,actor,role,requested,current=None):
 def create_user(data:UserCreate,db:Session=Depends(get_db),actor:User=Depends(manager)):
     if actor.role != "director" and data.role in {"director", "manager"}:raise HTTPException(403,"Only a director can assign management roles")
     if db.scalar(select(User).where(User.username==data.username)):raise HTTPException(409,"Username already exists")
-    if data.role == 'kitchen' and not data.department_id: raise HTTPException(400, 'Kitchen users need a preparation department.')
     if data.department_id and not db.get(Department, data.department_id): raise HTTPException(400, 'Department not found')
     branch_id=staff_branch(db,actor,data.role,data.branch_id)
     x=User(username=data.username,password_hash=hash_password(data.password),role=data.role,full_name=data.full_name,department_id=data.department_id,branch_id=branch_id);db.add(x);save_config(db,actor,x,'users');db.refresh(x);return user_dict(x)
@@ -89,7 +88,6 @@ def update_user(user_id:int,data:UserUpdate,db:Session=Depends(get_db),actor:Use
         values["branch_id"]=staff_branch(db,actor,values.get("role",x.role),values["branch_id"],x.branch_id) if values["branch_id"] is not None else (None if actor.role=="director" and values.get("role",x.role)=="director" else x.branch_id)
         if values["branch_id"]!=x.branch_id:x.token_version+=1
     department_id=values.get('department_id',x.department_id)
-    if values.get('role',x.role)=='kitchen' and not department_id: raise HTTPException(400, 'Kitchen users need a preparation department.')
     if department_id and not db.get(Department,department_id): raise HTTPException(400, 'Department not found')
     if ("role" in values and values["role"] != x.role) or ("active" in values and values["active"] != x.active):x.token_version+=1
     for k,v in values.items():setattr(x,k,v)

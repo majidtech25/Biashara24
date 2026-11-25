@@ -1,3 +1,4 @@
+from conftest import waiter_headers
 """Printers per branch, and the background retry of tickets that were never sent."""
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -13,7 +14,7 @@ from test_integration import login, new_menu, new_table
 
 
 def new_order(c, h, menu):
-    r = c.post('/api/orders', headers={**h, 'Idempotency-Key': uuid4().hex},
+    r = c.post('/api/orders', headers={**waiter_headers(c), 'Idempotency-Key': uuid4().hex},
                json={'table_id': new_table(c, h), 'items': [{'menu_item_id': menu['id'], 'quantity': 1}]})
     assert r.status_code == 201, r.text
     return r.json()

@@ -1,3 +1,4 @@
+from conftest import waiter_headers
 """Takeaway orders, splitting a bill by items, and paying one bill in parts."""
 from uuid import uuid4
 
@@ -17,7 +18,7 @@ def order(c, h, items, **extra):
     body = {'items': [{'menu_item_id': m['id'], 'quantity': q} for m, q in items], **extra}
     if 'order_type' not in extra:
         body['table_id'] = new_table(c, h)
-    return send(c, 'POST', '/api/orders', h, body)
+    return send(c, 'POST', '/api/orders', waiter_headers(c), body)
 
 
 def test_takeaway_orders_need_no_table():

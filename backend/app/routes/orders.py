@@ -18,6 +18,7 @@ from ..services.audit import record
 router=APIRouter(prefix="/api", tags=["Orders"])
 readers=require_roles("waiter","cashier","manager","director")
 writers=require_roles("waiter","manager","director")
+waiters=require_roles("waiter")  # only waiters send orders to the kitchen
 managers=require_roles("manager","director")
 
 @router.get("/menu")
@@ -83,7 +84,7 @@ def get_order(order_id:int,db:Session=Depends(get_db),user:User=Depends(readers)
 
 @router.post("/orders",status_code=201)
 def create_order(data:OrderCreate,idempotency_key:str=Header(min_length=8,max_length=100),
-                 db:Session=Depends(get_db),user:User=Depends(writers)):
+                 db:Session=Depends(get_db),user:User=Depends(waiters)):
     start_write(db)
     order,submission=workflow.create(db,user,data,idempotency_key)
     workflow.deliver(db,order,submission)
@@ -91,7 +92,7 @@ def create_order(data:OrderCreate,idempotency_key:str=Header(min_length=8,max_le
 
 @router.post("/orders/{order_id}/items",status_code=201)
 def add_items(order_id:int,data:OrderAddition,idempotency_key:str=Header(min_length=8,max_length=100),
-              db:Session=Depends(get_db),user:User=Depends(writers)):
+              db:Session=Depends(get_db),user:User=Depends(waiters)):
     start_write(db)
     order,submission=workflow.add(db,user,order_id,data,idempotency_key)
     workflow.deliver(db,order,submission)
@@ -135,9 +136,7 @@ def update_order(order_id:int,data:OrderUpdate,db:Session=Depends(get_db),user:U
     start_write(db);order=bill(db,order_id,user)
     if not can_transition(order.status,data.status):raise HTTPException(409,"Invalid order transition")
     if pending(db,order.id):raise HTTPException(409,"Resolve pending change requests first")
-    from ..models import KitchenLine
-    if data.status in {'printed','ready'} and db.scalar(select(KitchenLine.order_item_id).where(KitchenLine.order_item_id.in_([i.id for i in order.items])).limit(1)):
-        raise HTTPException(409, 'Start preparation from the kitchen screen so recipe stock is deducted correctly.')
+    # No kitchen screen: managers move bills through the pipeline; ingredients come off stock at payment.
     from ..models import Payment
     payment=db.scalar(select(Payment).where(Payment.order_id==order.id, Payment.status != 'rejected'))
     from ..services.payment_services import balance
