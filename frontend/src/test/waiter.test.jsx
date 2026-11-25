@@ -51,7 +51,7 @@ async function selectCart(){fireEvent.click(await screen.findByRole('button',{na
 
 it('shows service navigation, original items, elapsed time and honest delivery wording',async()=>{
  open('/waiter/bills');expect(await screen.findByText('B-11')).toBeInTheDocument();
- expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getAllByRole('link').map(x=>x.textContent)).toEqual(['My bills','New order','History','Food pickup','Notifications']);
+ expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getAllByRole('link').map(x=>x.textContent)).toEqual(['My bills','New order','History','Notifications']);
  expect(screen.getByText('3 × Tea')).toBeInTheDocument();expect(screen.getByText(/Delivery uncertain\/failed/)).toBeInTheDocument();
  expect(mock).toHaveBeenCalledWith(expect.stringContaining('active=true&sort=oldest&limit=100&offset=0'),expect.anything());
 });

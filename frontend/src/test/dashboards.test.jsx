@@ -47,7 +47,7 @@ describe('live workspaces',()=>{
   expect(screen.getByRole('heading',{name:'Printer Status'})).toBeInTheDocument();
   expect(screen.getByText('Prep timing not recorded')).toBeInTheDocument();
   expect(screen.queryByRole('heading',{name:'Create order'})).not.toBeInTheDocument();
-  expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getAllByRole('link').map(a=>a.textContent)).toEqual(['Manager Dashboard','Orders','Menu','Staff','Printers','Reports']);
+  expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getAllByRole('link').map(a=>a.textContent)).toEqual(['Manager Dashboard','Orders','Menu','Reports']);
   expect(screen.getByRole('link',{name:'Manage Menu'})).toHaveAttribute('href','/manager/menu');
   expect(screen.getByRole('link',{name:'Manage Printers'})).toHaveAttribute('href','/manager/printers');
  });
@@ -60,7 +60,7 @@ describe('live workspaces',()=>{
   expect(screen.getByText('Waiting for order data.')).toBeInTheDocument();
  });
  it.each([['/director/overview','Good morning, Director'],['/manager/manager-dashboard','Operations Manager'],['/carwash_manager/wash-overview','Car Wash Manager'],['/store_manager/store-overview','Store & Inventory'],['/cashier/checkout','Cashier Station'],['/waiter/orders','My open bills']])('opens %s',(path,title)=>{open(path);expect(screen.getByRole('heading',{name:title,level:1})).toBeInTheDocument()});
- it('displays server revenue and only six director navigation links',async()=>{open('/director/overview');expect(await screen.findByText('KES 1,734')).toBeInTheDocument();expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getAllByRole('link').map(a=>a.textContent)).toEqual(['Overview','Orders','Payments','Inventory','Carwash','Reports'])});
+ it('displays server revenue and the three director sidebar links',async()=>{open('/director/overview');expect(await screen.findByText('KES 1,734')).toBeInTheDocument();expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getAllByRole('link').map(a=>a.textContent)).toEqual(['Dashboard','Finance','Reports'])});
  it('filters saved inventory',async()=>{open('/store_manager/store-overview');await screen.findByText('Flour',{selector:'td'});fireEvent.change(screen.getByLabelText('Stock status'),{target:{value:'low stock'}});expect(screen.queryByText('Flour',{selector:'td'})).not.toBeInTheDocument();expect(screen.getByText('Tomatoes',{selector:'td'})).toBeInTheDocument()});
  it('creates an ingredient through the correct endpoint and fetches it after remount',async()=>{
  const view=open('/store_manager/store-overview');await screen.findByText('Flour',{selector:'td'});

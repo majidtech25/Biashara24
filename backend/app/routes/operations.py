@@ -20,7 +20,7 @@ from ..services.production import start_preparation, move, reserved
 router = APIRouter(prefix='/api', tags=['Restaurant operations'])
 management = require_roles('manager', 'director')
 stock_auth = require_roles('store_manager', 'manager', 'director')
-production_auth = require_roles('kitchen', 'waiter', 'manager', 'director')
+production_auth = require_roles('waiter', 'manager', 'director')
 
 
 def fields(row, names):
@@ -71,9 +71,6 @@ def save_recipe(data: RecipeInput, db: Session = Depends(get_db), user=Depends(s
 
 def kitchen_scope(query, user):
     if user.role == 'waiter': return query.where(Order.waiter_id == user.id)
-    if user.role == 'kitchen':
-        if user.department_id is None: raise HTTPException(403, 'Assign a preparation department to this account.')
-        return query.where(OrderItem.department_id_at_time == user.department_id)
     return query
 
 
@@ -110,7 +107,6 @@ def progress(line_id: int, data: KitchenUpdate, db: Session = Depends(get_db), u
     if not state: raise HTTPException(409, 'Legacy line has no tracked preparation history.')
     if state.version != data.expected_version: raise HTTPException(409, 'Kitchen progress changed. Refresh first.')
     if user.role == 'waiter' and data.status != 'served': raise HTTPException(403, 'Waiters may mark ready food served.')
-    if user.role == 'kitchen' and data.status == 'served': raise HTTPException(403, 'The waiter must confirm service.')
     if {'pending': 'preparing', 'preparing': 'ready', 'ready': 'served'}.get(state.status) != data.status:
         raise HTTPException(409, 'Invalid preparation transition.')
     before = state.status

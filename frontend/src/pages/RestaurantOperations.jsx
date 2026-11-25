@@ -6,22 +6,6 @@ import WorkspaceDialog from '../components/WorkspaceDialog';
 import {LineExtras,lineBody} from '../components/StockExtras';
 import {useData,useAction,Feedback,ActionFeedback,Table,Field,EntryForm,options,number,money,PageHeader,Panel} from './LiveUI';
 
-export function KitchenOperations(){
- const {user}=useAuth(),query=useData('/api/kitchen/lines',10000),action=useAction(query.reload);
- const next={pending:'preparing',preparing:'ready',ready:'served'};
- // One ticket per order the waiter sent, oldest first, like the paper ticket the kitchen receives.
- const tickets=[];for(const line of query.data||[]){let t=tickets.find(x=>x.order_id===line.order_id);if(!t){t={order_id:line.order_id,order_number:line.order_number,table_number:line.table_number,order_type:line.order_type,customer:line.customer,waiter:line.waiter,notes:line.notes,created_at:line.created_at,lines:[]};tickets.push(t)}t.lines.push(line)}
- const canMove=line=>next[line.status]&&(user.role!=='waiter'||line.status==='ready')&&(user.role!=='kitchen'||line.status!=='ready');
- const time=v=>v?new Date(/[Z+]\d*:?\d*$/.test(v)?v:v+'Z').toLocaleTimeString('en-KE',{timeZone:'Africa/Nairobi',hour:'2-digit',minute:'2-digit'}):'';  // server times are UTC
- return <><PageHeader title={user.role==='waiter'?'Food pickup':'Kitchen Operations'} subtitle={user.role==='waiter'?'Food that is ready to take to the table':'Orders sent by waiters, oldest first'} action="Refresh" onAction={query.reload}/><Feedback query={query}/><ActionFeedback action={action}/>
- <Panel title="Incoming orders">{!query.loading&&!tickets.length&&<p className="operations-empty">No orders waiting. New waiter orders appear here automatically.</p>}<div className="kitchen-tickets">{tickets.map(t=><article className="kitchen-ticket" key={t.order_id} aria-label={'Order '+t.order_number}>
-  <header><strong>{t.table_number?'Table '+t.table_number:t.order_type==='takeaway'?'Takeaway'+(t.customer?' · '+t.customer:''):'No table'}</strong><time>{time(t.created_at)}</time></header>
-  <p className="kitchen-ticket-meta">{t.order_number}{t.waiter?' · '+t.waiter:''}</p>
-  {t.notes&&<p className="kitchen-ticket-notes">{t.notes}</p>}
-  <ul>{t.lines.map(line=><li key={line.id} className={'kitchen-line line-'+line.status}><span><b>{line.quantity}×</b> {line.name}<small>{line.department} · {line.status}</small></span>{canMove(line)&&<button className="btn primary small-btn" disabled={action.busy} onClick={()=>action.run(()=>http.put('/api/kitchen/lines/'+line.order_item_id,{expected_version:line.version,status:next[line.status]}))}>Mark {next[line.status]}</button>}</li>)}</ul>
- </article>)}</div></Panel></>;
-}
-
 export function LiveNotifications(){
  const query=useData('/api/notifications',15000),action=useAction(query.reload);
  return <><PageHeader title="Notifications" subtitle="Saved updates for your account" action="Refresh" onAction={query.reload}/><Feedback query={query}/><ActionFeedback action={action}/><Panel title="Inbox"><Table columns={[

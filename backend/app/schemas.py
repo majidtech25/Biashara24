@@ -9,7 +9,7 @@ class BaseModel(PydanticBaseModel):
 # Currency input: exact shillings with at most two decimal places.
 MoneyIn = Annotated[Decimal, Field(max_digits=14, decimal_places=2)]
 
-Role = Literal["waiter", "cashier", "manager", "director", "store_manager", "carwash_manager", "kitchen"]
+Role = Literal["waiter", "cashier", "manager", "director", "store_manager", "carwash_manager"]  # no kitchen account (Majid, 2026-11-25)
 PaymentMethod = Literal["cash", "m-pesa"]
 
 class LoginIn(BaseModel):

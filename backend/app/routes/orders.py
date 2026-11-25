@@ -136,9 +136,7 @@ def update_order(order_id:int,data:OrderUpdate,db:Session=Depends(get_db),user:U
     start_write(db);order=bill(db,order_id,user)
     if not can_transition(order.status,data.status):raise HTTPException(409,"Invalid order transition")
     if pending(db,order.id):raise HTTPException(409,"Resolve pending change requests first")
-    from ..models import KitchenLine
-    if data.status in {'printed','ready'} and db.scalar(select(KitchenLine.order_item_id).where(KitchenLine.order_item_id.in_([i.id for i in order.items])).limit(1)):
-        raise HTTPException(409, 'Start preparation from the kitchen screen so recipe stock is deducted correctly.')
+    # No kitchen screen: managers move bills through the pipeline; ingredients come off stock at payment.
     from ..models import Payment
     payment=db.scalar(select(Payment).where(Payment.order_id==order.id, Payment.status != 'rejected'))
     from ..services.payment_services import balance

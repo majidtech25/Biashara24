@@ -7,30 +7,29 @@ import {
 } from 'lucide-react';
 
 export const roles = {
-  kitchen: {label:'Kitchen',nav:[['kitchen','Preparation queue',ChefHat]]},
   director: {
     label: 'Director',
     user: 'Abdul Hared',
-    sidebarLinks: ['overview', 'orders', 'payments', 'inventory', 'car-wash', 'reports'],
+    sidebarLinks: ['overview', 'payments', 'reports'],  // Majid, 2026-11-25: dashboard, finance, reports
     extraPages: ['tables', 'bill-changes', 'menu', 'categories', 'departments', 'printers', 'bay-config', 'service-types'],
     nav: [
-      ['overview', 'Overview', LayoutDashboard], ['orders', 'Orders', ShoppingBag],
-      ['payments', 'Payments', CreditCard], ['inventory', 'Inventory', Boxes],
+      ['overview', 'Dashboard', LayoutDashboard], ['orders', 'Orders', ShoppingBag],
+      ['payments', 'Finance', CreditCard], ['inventory', 'Inventory', Boxes],
       ['car-wash', 'Carwash', Car], ['reports', 'Reports', BarChart3],
       ['management', 'Management', Users], ['branches', 'Branches', Building2],
       ['audit', 'Audit Logs', ScrollText], ['notifications', 'Notifications', Bell],
       ['settings', 'System Settings', Settings]
-      ,['kitchen','Kitchen Operations',ChefHat],['reorder','Purchasing',Truck],['recipes','Recipes',BookOpen],['suppliers','Suppliers',Users],['deliveries','Stock Documents',Truck],['stock-counts','Stock Counts',ClipboardCheck],['reconciliation','Cash Reconciliation',WalletCards],['refunds','Refunds',Receipt],['printer-recovery','Printer Recovery',Printer]
+      ,['reorder','Purchasing',Truck],['recipes','Recipes',BookOpen],['suppliers','Suppliers',Users],['deliveries','Stock Documents',Truck],['stock-counts','Stock Counts',ClipboardCheck],['reconciliation','Cash Reconciliation',WalletCards],['refunds','Refunds',Receipt],['printer-recovery','Printer Recovery',Printer]
     ]
   },
   manager: {
     label: 'Manager',
     user: 'Mary Akinyi',
-    sidebarLinks: ['manager-dashboard', 'order-pipeline', 'menu', 'staff', 'printers', 'manager-reports'],
+    sidebarLinks: ['manager-dashboard', 'order-pipeline', 'menu', 'manager-reports'],  // Majid, 2026-11-25
     extraPages: ['tables', 'bill-changes', 'categories', 'manager-payments'],
     nav: [
       ['manager-dashboard', 'Manager Dashboard', LayoutDashboard], ['order-pipeline', 'Orders', ListChecks],
-      ['kitchen', 'Kitchen Operations', ChefHat], ['menu', 'Menu', UtensilsCrossed],
+      ['menu', 'Menu', UtensilsCrossed],
       ['staff', 'Staff', Users], ['printers', 'Printers', Printer],
       ['departments', 'Departments', Building2], ['manager-reports', 'Reports', FileBarChart],
       ['branch-menu', 'Branch menu', SlidersHorizontal],
@@ -53,9 +52,9 @@ export const roles = {
   store_manager: {
     label: 'Store Manager',
     user: 'Faith Wanjiku',
-    sidebarLinks: ['store-overview', 'ingredients', 'receive-stock', 'adjustments', 'stock-history', 'inventory-reports'],
+    sidebarLinks: ['store-overview', 'ingredients'],  // Majid, 2026-11-25: dashboard, inventory
     nav: [
-      ['store-overview', 'Inventory Overview', LayoutDashboard], ['ingredients', 'Ingredients', Boxes],
+      ['store-overview', 'Dashboard', LayoutDashboard], ['ingredients', 'Inventory', Boxes],
       ['receive-stock', 'Receive Stock', Truck], ['adjustments', 'Adjustments', SlidersHorizontal],
       ['recipes', 'Recipes', BookOpen], ['suppliers', 'Suppliers', Users],
       ['deliveries', 'Deliveries', Warehouse], ['stock-counts', 'Stock Counts', ClipboardCheck],
@@ -66,12 +65,12 @@ export const roles = {
   waiter: {
     label: 'Waiter',
     extraPages: ['orders'],
-    nav: [['bills', 'My bills', Receipt], ['new-order', 'New order', ShoppingBag], ['history', 'History', History],['food-pickup','Food pickup',ChefHat],['notifications','Notifications',Bell]]
+    nav: [['bills', 'My bills', Receipt], ['new-order', 'New order', ShoppingBag], ['history', 'History', History],['notifications','Notifications',Bell]]
   },
   carwash_manager: {
     label: 'Car Wash Manager',
     user: 'Collins Ouma',
-    sidebarLinks: ['wash-overview', 'active-bays', 'new-wash', 'wash-payments', 'attendants', 'wash-history', 'service-types', 'bay-config', 'wash-reports'],
+    sidebarLinks: ['wash-overview', 'new-wash', 'wash-history'],  // Majid, 2026-11-25
     nav: [
       ['wash-overview', 'Car Wash Overview', LayoutDashboard], ['active-bays', 'Active Bays', Gauge],
       ['new-wash', 'New Transaction', Car], ['wash-payments', 'Payments', CreditCard],

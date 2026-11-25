@@ -31,5 +31,24 @@ def settle(db, order, actor_id):
         order.version += 1
         release_table(db, order)
         db.add(OrderStatusHistory(order_id=order.id, status='cleared', changed_by=actor_id))
+        use_ingredients(db, order, actor_id)
         return True
     return False
+
+
+def use_ingredients(db, order, actor_id):
+    """Take the dishes' ingredients off stock when the bill is paid (Majid, 2026-11-25).
+
+    There is no kitchen screen, so nothing marks a dish as started. The ingredients held when the
+    waiter sent the order are used up now; a cancelled order never reaches this point."""
+    from datetime import datetime
+    from ..models import KitchenLine, User
+    from .production import start_preparation
+    actor = db.get(User, actor_id)
+    for item in order.items:
+        state = db.get(KitchenLine, item.id)
+        if not state or state.status in ('served', 'cancelled'):
+            continue
+        start_preparation(db, item, state, actor)  # uses whatever is still held for this dish
+        state.status, state.served_at = 'served', datetime.utcnow()
+        state.version += 1

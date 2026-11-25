@@ -16,7 +16,7 @@ import {BayBoard,Attendants} from './CarwashBoard';
 import BranchPrinters from '../components/BranchPrinters';
 import PrintAgents from '../components/PrintAgents';
 import PreviewWorkspace,{previewModules} from './PreviewWorkspace';
-import {KitchenOperations,LiveNotifications,Recipes,Suppliers,StockDocuments,CashOffice,Refunds,BusinessSettings,PrinterRecovery} from './RestaurantOperations';
+import {LiveNotifications,Recipes,Suppliers,StockDocuments,CashOffice,Refunds,BusinessSettings,PrinterRecovery} from './RestaurantOperations';
 
 export default function RolePage({id}){
  const {user}=useAuth();const location=useLocation();
@@ -24,7 +24,6 @@ export default function RolePage({id}){
  if(id==='branch-menu')return <BranchMenuPage/>;
  if(id==='active-bays')return <BayBoard/>;
  if(id==='attendants')return <Attendants/>;
- if(['kitchen','food-pickup'].includes(id))return <KitchenOperations/>;
  if(['notifications','manager-notifications'].includes(id))return <LiveNotifications/>;
  if(id==='recipes')return <Recipes/>;
  if(id==='suppliers')return <Suppliers/>;

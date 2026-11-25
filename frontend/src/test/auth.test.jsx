@@ -5,7 +5,7 @@ import App from '../App';
 import {request} from '../services/http';
 vi.mock('recharts',()=>({ResponsiveContainer:()=>null,Bar:()=>null,BarChart:()=>null,CartesianGrid:()=>null,Cell:()=>null,Pie:()=>null,PieChart:()=>null,Tooltip:()=>null,XAxis:()=>null,YAxis:()=>null}));
 const token=`header.${btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600}))}.signature`;
-const accounts=[['kitchen','Kitchen','kitchen@example.com','Kitchen123!','Kitchen Operations'],['director','Director','director@gmail.com','director123','Good morning, Director'],['manager','Manager','manager@gmail.com','manager123','Operations Manager'],['cashier','Cashier','cashier@gmail.com','cashier123','Cashier Station'],['store_manager','Store Manager','store@gmail.com','store123','Store & Inventory'],['carwash_manager','Car Wash Manager','carwash@gmail.com','carwash123','Car Wash Manager']];
+const accounts=[['director','Director','director@gmail.com','director123','Good morning, Director'],['manager','Manager','manager@gmail.com','manager123','Operations Manager'],['cashier','Cashier','cashier@gmail.com','cashier123','Cashier Station'],['store_manager','Store Manager','store@gmail.com','store123','Store & Inventory'],['carwash_manager','Car Wash Manager','carwash@gmail.com','carwash123','Car Wash Manager']];
 const account=role=>({id:7,username:'employee@gmail.com',full_name:'Test Person',role,active:true});
 const response=(data,status=200)=>({ok:status>=200&&status<300,status,headers:{get:()=> 'application/json'},json:async()=>data});
 function open(path='/'){return render(<MemoryRouter initialEntries={[path]}><App/></MemoryRouter>)}
