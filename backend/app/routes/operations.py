@@ -390,6 +390,16 @@ def retry_printer(identity: int, data: PrinterRetry, db: Session = Depends(get_d
     target = printer_for(db, department, order.branch_id) if department else None
     if not target: raise HTTPException(409, 'Configure the department printer first.')
     before = dict(deliveries[index])
+    from .print_agents import agent_branch
+    if agent_branch(db, order.branch_id):
+        # The branch's print program collects it on its next check (within a few seconds).
+        deliveries[index] = {**{k: v for k, v in before.items() if k != 'claim'}, 'status': 'queued', 'attempts': 0,
+                             'last_retry_key': idempotency_key, 'retry_reason': data.reason}
+        batch.deliveries = deliveries
+        record(db, user, 'operator_reprint', 'printer_jobs', batch.id, before=before, after=deliveries[index])
+        response = {'id': batch.id, 'department_id': data.department_id, 'status': 'queued'}
+        finish_submission(submission, response); db.commit()
+        return response
     deliveries[index] = {**before, 'status': 'uncertain', 'last_retry_key': idempotency_key, 'retry_reason': data.reason}
     batch.deliveries = deliveries
     record(db, user, 'operator_reprint', 'printer_jobs', batch.id, before=before, after=deliveries[index])

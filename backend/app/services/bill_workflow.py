@@ -166,6 +166,8 @@ def decide(db,user,identity,data):
 def deliver(db,order,submission):
     if not submission: return
     from .printers_services import send_batch_ticket, printer_for
+    from ..routes.print_agents import agent_branch
+    if agent_branch(db, order.branch_id): return  # the branch's print program collects these tickets
     # Claim every destination before network I/O. Replays never call this function.
     for index, delivery in enumerate(submission.deliveries):
         if delivery["status"]!="queued": continue

@@ -19,3 +19,6 @@ frontend/*-tests.txt
 deploy/.env
 deploy/backups/
 deploy/rclone/
+
+# Print program settings hold a secret key
+print-agent/print_agent.ini

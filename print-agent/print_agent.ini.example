@@ -1,0 +1,5 @@
+[print_agent]
+# The address of the system, as staff open it in the browser.
+server = https://pos.example.co.ke
+# The key shown once when a manager added this computer on the Printers page.
+key = bpa_paste-the-key-here

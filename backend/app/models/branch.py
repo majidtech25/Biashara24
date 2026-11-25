@@ -51,3 +51,16 @@ class BranchPrinter(Base):
     printer_ip: Mapped[str] = mapped_column(String(80))
     printer_port: Mapped[int] = mapped_column(default=9100)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class PrintAgent(Base):
+    """The print program on a computer at a branch. While one is active, that branch's
+    kitchen tickets wait on the server until the program collects and prints them."""
+    __tablename__ = "print_agents"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)  # sha256 of the program's key
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

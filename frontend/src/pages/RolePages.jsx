@@ -14,6 +14,7 @@ import OrderBoard from './OrderBoard';
 import Branches,{BranchMenuPage} from './Branches';
 import {BayBoard,Attendants} from './CarwashBoard';
 import BranchPrinters from '../components/BranchPrinters';
+import PrintAgents from '../components/PrintAgents';
 import PreviewWorkspace,{previewModules} from './PreviewWorkspace';
 import {KitchenOperations,LiveNotifications,Recipes,Suppliers,StockDocuments,CashOffice,Refunds,BusinessSettings,PrinterRecovery} from './RestaurantOperations';
 
@@ -46,7 +47,7 @@ export default function RolePage({id}){
  if(['car-wash','wash-overview','new-wash','wash-payments','cashier-carwash','wash-history','pending-wash-payments','wash-summary','wash-reports'].includes(id))return <Carwash page={id}/>;
  if(['reports','manager-reports'].includes(id))return <Reports/>;
  const config={menu:['menu','Menu Management'],management:['users','Staff accounts'],staff:['users','Staff Management'],departments:['departments','Departments'],categories:['categories','Categories'],printers:['printers','Printer Management'],'bay-config':['bays','Wash Bays'],'service-types':['services','Wash Services'],audit:['audits','Audit History']}[id];
- if(config&&id==='printers')return <><Configuration resource={config[0]} title={config[1]}/><BranchPrinters/></>;
+ if(config&&id==='printers')return <><Configuration resource={config[0]} title={config[1]}/><PrintAgents/><BranchPrinters/></>;
  if(config)return <Configuration resource={config[0]} title={config[1]}/>;
  return <><PageHeader title="Not yet available" action={null}/><Panel title="This module has not been implemented"><p>Use the operational pages for orders, payments, stock, car wash and reports. No records are saved from this page.</p></Panel></>;
 }
