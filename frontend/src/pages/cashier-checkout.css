@@ -4,3 +4,11 @@
 
 /* Clear text at compact workstation sizes. */
 .cashier-checkout{font-weight:500}.cashier-checkout input,.cashier-checkout select,.cashier-checkout button{font-weight:500}.cashier-checkout input::placeholder{color:#53665b;opacity:1}.cashier-checkout .field,.cashier-counters span,.cashier-eyebrow{font-weight:600}.cashier-checkout strong,.cashier-checkout b{font-weight:700}
+
+.cashier-paid-so-far{margin:12px 0;padding:10px 12px;border:1px solid #d7e3da;border-radius:8px;background:#f6faf7}
+.cashier-paid-so-far ul{list-style:none;margin:6px 0;padding:0}
+.cashier-paid-so-far li{display:flex;justify-content:space-between;gap:12px;padding:2px 0}
+.cashier-split{position:fixed;inset:auto 0 0 0;max-height:80vh;overflow:auto;margin:0 auto;max-width:560px;background:#fff;border:1px solid #d7e3da;border-radius:12px 12px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.15);padding:18px;z-index:40}
+.cashier-split .cashier-items li{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.cashier-split .cashier-items input{width:80px}
+.cashier-split form>.btn{margin-right:8px}

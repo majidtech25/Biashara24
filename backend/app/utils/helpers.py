@@ -24,6 +24,16 @@ def menu_dict(m):
             "active": m.active, "image":m.image_url, "image_url":m.image_url,
             "description":m.description, "tax_rate":m.tax_rate, "price_includes_tax":True}
 
+def _paid(db, o):
+    from sqlalchemy import select
+    from ..models import Payment
+    rows = db.scalars(select(Payment).where(Payment.order_id == o.id, Payment.status != 'rejected').order_by(Payment.id)).all()
+    paid = sum(float(p.amount) for p in rows if p.status == 'completed')
+    waiting = sum(float(p.amount) for p in rows if p.status == 'pending')
+    return {"paid_amount": money(paid), "awaiting_confirmation": money(waiting), "balance": money(float(o.total) - paid - waiting),
+            "payments": [{"id": p.id, "amount": money(p.amount), "method": p.method, "status": p.status, "reference": p.reference}
+                         for p in rows]}
+
 def order_dict(o):
     from .tax import order_tax
     from sqlalchemy.orm import object_session
@@ -57,7 +67,8 @@ def order_dict(o):
                                 "decision_reason":r.decision_reason,"created_at":r.created_at,"decided_at":r.decided_at} for r in changes],
             "waiter": o.waiter.full_name or o.waiter.username, "customer": o.customer,
             "total": money(o.total), "tax_summary":order_tax(o), "status": o.status, "created_at": o.created_at,
-            "cleared_at": o.cleared_at,
+            "cleared_at": o.cleared_at, "order_type": o.order_type or "dine_in", "split_from_id": o.split_from_id,
+            **_paid(db, o),
             "items": [{"id": i.id, "menu_item_id": i.menu_item_id, "name": i.name_at_time or i.menu_item.name,
                        "historical_name_known": i.name_at_time is not None,
                        "department": i.department_name_at_time or i.menu_item.department.name, "quantity": i.quantity-i.voided_quantity,

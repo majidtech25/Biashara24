@@ -97,6 +97,31 @@ describe('live workspaces',()=>{
  expect(JSON.parse(call[1].body)).toMatchObject({amount:320,expected_version:1,method:'cash',tendered_amount:500});
  expect(fetchMock.mock.calls.some(([url])=>url.includes('/api/orders?active=true&sort=oldest'))).toBe(true);
  });
+ it('records part of a bill and says what is left',async()=>{
+ open('/cashier/checkout');fireEvent.click(await screen.findByRole('button',{name:/Table 1.*KES 320/}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Record cash payment'})).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Amount for this payment (KES)'),{target:{value:'200'}});
+ expect(screen.getByText(/Part payment: KES 120/)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Exact'}));
+ fireEvent.click(screen.getByRole('button',{name:'Record cash payment'}));
+ await screen.findByText('Payment recorded');
+ const call=fetchMock.mock.calls.find(([url])=>url.endsWith('/api/orders/1/clear'));
+ expect(JSON.parse(call[1].body)).toMatchObject({amount:200,part_payment:true,method:'cash',tendered_amount:200});
+ });
+ it('splits items to a new bill',async()=>{
+ const base=fetchMock.getMockImplementation();
+ fetchMock.mockImplementation(async(url,init)=>new URL(url).pathname==='/api/orders/1/split'?response({original:{...orders[0],version:2,total:160},new:{...orders[0],id:9,order_number:'B-LIVE-9',total:160,customer:'Brian'}},201):base(url,init));
+ open('/cashier/checkout');fireEvent.click(await screen.findByRole('button',{name:/Table 1.*KES 320/}));
+ fireEvent.click(await screen.findByRole('button',{name:'Split bill'}));
+ const dialog=screen.getByRole('dialog',{name:'Split bill'});
+ fireEvent.change(within(dialog).getByLabelText('Move Tea'),{target:{value:'1'}});
+ fireEvent.change(within(dialog).getByLabelText('Name for the new bill (optional)'),{target:{value:'Brian'}});
+ expect(dialog).toHaveTextContent('New bill: KES 160');
+ fireEvent.click(within(dialog).getByRole('button',{name:'Create new bill'}));
+ expect(await within(dialog).findByText(/New bill B-LIVE-9 for KES 160 was created for Brian/)).toBeInTheDocument();
+ const call=fetchMock.mock.calls.find(([url])=>url.endsWith('/api/orders/1/split'));
+ expect(JSON.parse(call[1].body)).toEqual({expected_version:1,customer:'Brian',items:[{order_item_id:1,quantity:1}]});
+ });
  it('requires another review when the selected bill changes',async()=>{
  open('/cashier/checkout');fireEvent.click(await screen.findByRole('button',{name:/Table 1.*KES 320/}));
  await waitFor(()=>expect(screen.getByRole('button',{name:'Record cash payment'})).toBeEnabled());

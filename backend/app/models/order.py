@@ -53,6 +53,8 @@ class Order(BranchScoped, Base):
     status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
     cleared_at: Mapped[datetime | None] = mapped_column(DateTime)
+    order_type: Mapped[str] = mapped_column(String(20), default="dine_in", server_default="dine_in")  # or "takeaway"
+    split_from_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id"))  # bill this one was split from
     waiter: Mapped[User] = relationship()
     items: Mapped[list["OrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan", lazy="selectin",
                                                  order_by="OrderItem.id")  # submission order on every database

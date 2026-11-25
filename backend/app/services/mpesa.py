@@ -195,19 +195,16 @@ def record_confirmation(db, payload: dict) -> C2BPayment | None:
 
 def _confirm_waiting_entry(db, row: C2BPayment):
     """A cashier may have typed this receipt before Safaricom's notice arrived: confirm it now."""
-    from .bill_lock import release_table
-    from ..models import OrderStatusHistory
     payment = db.scalar(select(Payment).where(Payment.method == "m-pesa", Payment.status == "pending",
                                               func.upper(Payment.reference) == row.trans_id).execution_options(all_branches=True))
     if payment is not None and Decimal(payment.amount) == row.amount:
+        from .payment_services import settle
         now = datetime.utcnow()
         payment.status, payment.completed_at = "completed", now
         payment.notes = ((payment.notes or "") + " Confirmed by Safaricom's Paybill notice.").strip()
         order = payment.order
-        order.status, order.cleared_at = "cleared", now
         order.version += 1
-        release_table(db, order)
-        db.add(OrderStatusHistory(order_id=order.id, status="cleared", changed_by=payment.recorded_by))
+        settle(db, order, payment.recorded_by)
         row.status, row.payment_id, row.used_at, row.order_id, row.branch_id = "used", payment.id, now, order.id, order.branch_id
         return
     wash = db.scalar(select(CarWashTransaction).where(CarWashTransaction.payment_method == "m-pesa",

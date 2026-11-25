@@ -1,7 +1,7 @@
 ﻿from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
-from pydantic import BaseModel as PydanticBaseModel, ConfigDict, Field, AliasChoices, field_validator
+from pydantic import model_validator, BaseModel as PydanticBaseModel, ConfigDict, Field, AliasChoices, field_validator
 
 class BaseModel(PydanticBaseModel):
     model_config = ConfigDict(allow_inf_nan=False, str_strip_whitespace=True, populate_by_name=True)
@@ -68,10 +68,19 @@ class DepartmentCreate(BaseModel):
 
 class OrderLineIn(BaseModel): menu_item_id: int; quantity: int = Field(gt=0, le=100)
 class OrderCreate(BaseModel):
-    table_id: int = Field(gt=0)
+    table_id: int | None = Field(default=None, gt=0)
+    order_type: Literal["dine_in", "takeaway"] = "dine_in"
     items: list[OrderLineIn] = Field(min_length=1, max_length=100)
-    customer: str | None = None
+    customer: str | None = Field(default=None, max_length=120)
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def table_matches_type(self):
+        if self.order_type == "dine_in" and self.table_id is None:
+            raise ValueError("Select a table, or make this a takeaway order.")
+        if self.order_type == "takeaway" and self.table_id is not None:
+            raise ValueError("Takeaway orders have no table.")
+        return self
 class OrderUpdate(BaseModel):
     status: Literal["pending", "printed", "ready", "payment_pending", "cleared", "completed"] = Field(validation_alias=AliasChoices("status", "new_status"))
 class PaymentCreate(BaseModel):
@@ -81,6 +90,7 @@ class PaymentCreate(BaseModel):
     amount: MoneyIn = Field(gt=0)
     reference: str | None = Field(default=None, validation_alias=AliasChoices("reference", "reference_number"))
     notes: str | None = None
+    part_payment: bool = False  # pays only part of the bill; the rest is paid separately
 
 class IngredientCreate(BaseModel):
     name: str; unit: str; min_level: float = Field(ge=0); current_stock: float = Field(default=0, ge=0)
@@ -170,6 +180,11 @@ class OrderAddition(BaseModel):
 class RemovalLine(BaseModel):
     order_item_id: int = Field(gt=0)
     quantity: int = Field(gt=0)
+
+class SplitBill(BaseModel):
+    expected_version: int = Field(ge=1)
+    items: list[RemovalLine] = Field(min_length=1, max_length=100)
+    customer: str | None = Field(default=None, max_length=120)
 
 class ChangeCreate(BaseModel):
     expected_version: int = Field(ge=1)

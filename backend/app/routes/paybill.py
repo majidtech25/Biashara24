@@ -56,7 +56,9 @@ def bill_details(order_id: int | None = None, carwash_id: int | None = None, db:
         order = db.scalar(select(Order).where(Order.id == order_id))
         if not order or (user.role == "waiter" and order.waiter_id != user.id):
             raise HTTPException(404, "Bill not found")
-        account, amount = mpesa.account_for(order=order), Decimal(order.total)
+        from ..services.payment_services import balance
+        # A bill paid in parts shows what is still to pay.
+        account, amount = mpesa.account_for(order=order), max(balance(db, order)[2], Decimal("0.00"))
         target = or_(C2BPayment.order_id == order.id, C2BPayment.account == account)
     else:
         wash = db.scalar(select(CarWashTransaction).where(CarWashTransaction.id == carwash_id))

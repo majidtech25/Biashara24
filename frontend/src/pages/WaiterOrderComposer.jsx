@@ -10,9 +10,10 @@ export default function WaiterOrderComposer({bill,billId,user,tables,menu,draft,
  const navigate=useNavigate(),dialog=useRef(null);
  const [search,setSearch]=useState(''),[category,setCategory]=useState(''),[sheet,setSheet]=useState(null);
  const [reviewVersion,setReviewVersion]=useState(null),[choosingTable,setChoosingTable]=useState(false);
- const selectedTable=tables.data?.find(t=>t.id===Number(draft.table_id));
+ const takeaway=!billId&&!!draft.takeaway;
+ const selectedTable=takeaway?null:tables.data?.find(t=>t.id===Number(draft.table_id));
  const tableNumber=billId?bill?.table_number:selectedTable?.number;
- const tableLabel=tableNumber?'Table '+tableNumber:billId?'Unassigned':'Choose a table';
+ const tableLabel=takeaway||(billId&&bill?.order_type==='takeaway')?'Takeaway'+((takeaway?draft.customer:bill?.customer)?' · '+(takeaway?draft.customer:bill.customer):''):tableNumber?'Table '+tableNumber:billId?'Unassigned':'Choose a table';
  const cart=draft.items.map(i=>({...i,menu:(()=>{const item=menu.data?.find(m=>m.id===i.menu_item_id);return item?{...item,image:productImage(item)}:undefined})()}));
  const count=cart.reduce((n,i)=>n+i.quantity,0);
  const subtotal=cart.reduce((n,i)=>n+(i.menu?.price||0)*i.quantity,0);
@@ -25,12 +26,12 @@ export default function WaiterOrderComposer({bill,billId,user,tables,menu,draft,
   :draft.pending?'The last submission has not been confirmed. Use Retry submission below before starting another.'
   :menu.error?'The menu could not be refreshed. Retry the connection before reviewing.'
   :!menu.data?'Loading the menu. Please wait.'
-  :!billId&&tables.error?'Tables could not be refreshed. Retry the connection before reviewing.'
-  :!billId&&!tables.data?'Loading tables. Please wait.'
-  :!billId&&!tables.data?.some(t=>t.is_active)?'No active tables are configured. Ask your manager to add or activate a table.'
-  :!billId&&!selectedTable?'Select an available table before reviewing your order.'
-  :!billId&&!selectedTable.is_active?'The selected table is inactive. Choose another table.'
-  :!billId&&selectedTable.occupied?(selectedTable.mine?'This table already has your bill. Open that bill to add these items.':'This table is now occupied. Choose another available table.')
+  :!billId&&!takeaway&&tables.error?'Tables could not be refreshed. Retry the connection before reviewing.'
+  :!billId&&!takeaway&&!tables.data?'Loading tables. Please wait.'
+  :!billId&&!takeaway&&!tables.data?.some(t=>t.is_active)?'No active tables are configured. Ask your manager to add or activate a table.'
+  :!billId&&!takeaway&&!selectedTable?'Select an available table before reviewing your order.'
+  :!billId&&!takeaway&&!selectedTable.is_active?'The selected table is inactive. Choose another table.'
+  :!billId&&!takeaway&&selectedTable.occupied?(selectedTable.mine?'This table already has your bill. Open that bill to add these items.':'This table is now occupied. Choose another available table.')
   :billId&&!bill?'Loading the bill. Please wait.'
   :billId&&(bill.locked||bill.addition_block_reason)?bill.addition_block_reason||'This bill is locked and cannot accept more items.'
   :!cart.length?'Add at least one food or drink before reviewing your order.'
@@ -59,7 +60,7 @@ export default function WaiterOrderComposer({bill,billId,user,tables,menu,draft,
   <Field label="Kitchen notes"><textarea disabled={frozen} placeholder="For example: no sugar, sauce on the side" maxLength={1000} value={draft.notes} onChange={e=>update({notes:e.target.value})}/></Field>
   <div className="cart-totals">{billId&&<><p>Current bill: {money(bill?.total||0)}</p><p>Additional items: {money(subtotal)}</p></>}<strong>Estimated {billId?'revised ':''}total: {money(total)}</strong><TaxSummary summary={taxSummary}/><small>Prices include 16% VAT and are confirmed when your items are accepted.</small></div>
   {bill?.addition_block_reason&&<p role="status">{bill.addition_block_reason}</p>}
-  {!billId&&!selectedTable&&<p className="cart-help">Choose a table to continue.</p>}
+  {!billId&&!takeaway&&!selectedTable&&<p className="cart-help">Choose a table to continue.</p>}{takeaway&&!frozen&&<><Field label="Customer name (optional)"><input maxLength={120} value={draft.customer||''} onChange={e=>update({customer:e.target.value})}/></Field><button className="btn" type="button" onClick={()=>update({takeaway:false,customer:''})}>Serve at a table instead</button></>}
   {reviewBlock&&<p id={reviewHelpId} className="cart-help" role="status">{reviewBlock}</p>}
   {!billId&&selectedTable&&(!selectedTable.is_active||selectedTable.occupied)&&!frozen&&<button className="btn" type="button" onClick={()=>{setSheet(null);setChoosingTable(true)}}>Choose another table</button>}
   {!billId&&selectedTable?.mine&&selectedTable.order_id&&<Link className="btn" to={'/waiter/new-order?bill='+selectedTable.order_id}>Add to existing bill</Link>}
@@ -69,7 +70,7 @@ export default function WaiterOrderComposer({bill,billId,user,tables,menu,draft,
  return <div className="waiter-ordering">
   <div className="order-context"><div className="order-context-table"><UtensilsCrossed size={22}/><div><strong>{tableLabel}</strong><small>{billId?'Adding to '+(bill?.order_number||'existing bill'):'New bill'}</small></div></div><div className="order-context-owner"><small>WAITER</small><strong>{user.full_name||user.username}</strong></div>{!billId&&selectedTable&&<button type="button" className="btn" disabled={frozen} onClick={()=>setChoosingTable(v=>!v)}>{choosingTable?'Hide tables':'Change table'}</button>}{billId&&<Link className="btn" to={'/waiter/bills?bill='+billId}>Back to bill</Link>}</div>
   <LiveState query={tables}/>
-  {!billId&&(!selectedTable||choosingTable)&&<section className="table-selection" aria-label="Choose a table"><div className="menu-section-heading"><h2>Select a table</h2><span>Tap a number to start</span></div><div className="table-picker">{tables.data?.filter(t=>t.is_active).map(t=><button type="button" key={t.id} disabled={frozen||(t.occupied&&!t.mine)} aria-pressed={Number(draft.table_id)===t.id} className={'table-target '+(Number(draft.table_id)===t.id?'selected':'')} onClick={()=>{if(t.mine){navigate('/waiter/bills?bill='+t.order_id)}else{update({table_id:t.id});setChoosingTable(false)}}}><strong>Table {t.number}</strong><span>{t.mine?'Your bill - Open':t.occupied?'Occupied · '+t.owner:'Available'}</span></button>)}</div>{tables.data?.length===0&&<p>No tables configured. Ask your manager to add tables.</p>}</section>}
+  {!billId&&!takeaway&&(!selectedTable||choosingTable)&&<section className="table-selection" aria-label="Choose a table"><div className="menu-section-heading"><h2>Select a table</h2><span>Tap a number to start</span></div><div className="table-picker"><button type="button" disabled={frozen} className="table-target takeaway-target" onClick={()=>{update({takeaway:true,table_id:''});setChoosingTable(false)}}><strong>Takeaway</strong><span>No table</span></button>{tables.data?.filter(t=>t.is_active).map(t=><button type="button" key={t.id} disabled={frozen||(t.occupied&&!t.mine)} aria-pressed={Number(draft.table_id)===t.id} className={'table-target '+(Number(draft.table_id)===t.id?'selected':'')} onClick={()=>{if(t.mine){navigate('/waiter/bills?bill='+t.order_id)}else{update({table_id:t.id});setChoosingTable(false)}}}><strong>Table {t.number}</strong><span>{t.mine?'Your bill - Open':t.occupied?'Occupied · '+t.owner:'Available'}</span></button>)}</div>{tables.data?.length===0&&<p>No tables configured. Ask your manager to add tables.</p>}</section>}
   <div className="waiter-compose">
    <section className="waiter-menu" aria-label="Food menu">
     <div className="menu-section-heading"><div><h2>Menu</h2></div><span>{visible.length} items</span></div>

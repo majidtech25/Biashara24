@@ -63,22 +63,24 @@ def append_lines(db, order, lines):
 def create(db, user, data, key):
     fingerprint, previous = replay(db,user,key,"create",data.model_dump())
     if previous: return previous, None
-    table = db.scalar(select(DiningTable).where(DiningTable.id == data.table_id).with_for_update())
+    takeaway = data.order_type == "takeaway"
+    table = None if takeaway else db.scalar(select(DiningTable).where(DiningTable.id == data.table_id).with_for_update())
     # A retry with the same key may have committed while this request waited for the lock
     # (PostgreSQL row locks; SQLite already serializes whole writes).
     fingerprint, previous = replay(db,user,key,"create",data.model_dump())
     if previous: return previous, None
-    if not table or not table.is_active: raise HTTPException(400, "Select an active table.")
-    if db.get(TableReservation, table.id): raise HTTPException(409, "This table already has an active bill.")
+    if not takeaway:
+        if not table or not table.is_active: raise HTTPException(400, "Select an active table.")
+        if db.get(TableReservation, table.id): raise HTTPException(409, "This table already has an active bill.")
     order = Order(order_number=new_order_number(), waiter_id=user.id, customer=data.customer, notes=data.notes,
-                  table_id=table.id, version=1, total=0)
+                  table_id=table.id if table else None, order_type=data.order_type, version=1, total=0)
     db.add(order); db.flush()
-    db.add(TableReservation(table_id=table.id,order_id=order.id))
+    if table: db.add(TableReservation(table_id=table.id,order_id=order.id))
     entries = append_lines(db, order, data.items)
     submission = batch(db,order,user,"original",entries,data.notes)
     db.add(BillSubmission(user_id=user.id,key=key,fingerprint=fingerprint,order_id=order.id,batch_id=submission.id))
     db.add(OrderStatusHistory(order_id=order.id,status="pending",changed_by=user.id))
-    record(db,user,"create_bill","orders",order.id,after={"table":table.number,"batch_id":submission.id,"total":order.total})
+    record(db,user,"create_bill","orders",order.id,after={"table":table.number if table else "takeaway","batch_id":submission.id,"total":order.total})
     db.commit()
     return order, submission
 
@@ -174,3 +176,64 @@ def deliver(db,order,submission):
         result=send_batch_ticket(department,order,submission,entries,table.number if table else None)
         states=[dict(d) for d in submission.deliveries];states[index].update(result)
         submission.deliveries=states;db.commit()
+
+def split(db, user, identity, data):
+    """Move some items to a new bill, so people at one table can pay separately.
+    Kitchen progress and reserved stock move with the items; nothing is printed again."""
+    from ..models import KitchenLine, StockReservation
+    order = bill(db, identity, user, data.expected_version); editable(db, order)
+    if pending(db, identity): raise HTTPException(409, "Resolve pending change requests before splitting the bill.")
+    ids = [line.order_item_id for line in data.items]
+    if len(ids) != len(set(ids)): raise HTTPException(400, "Select each item once.")
+    lines = {i.id: i for i in order.items}
+    moving = {}
+    for line in data.items:
+        target = lines.get(line.order_item_id)
+        if not target or line.quantity > target.quantity - target.voided_quantity:
+            raise HTTPException(400, "The quantity to move is more than is left on the bill.")
+        moving[target.id] = line.quantity
+    if all(moving.get(i.id, 0) == i.quantity - i.voided_quantity for i in order.items if i.quantity > i.voided_quantity):
+        raise HTTPException(400, "Leave at least one item on this bill.")
+    new = Order(order_number=new_order_number(), waiter_id=order.waiter_id, customer=data.customer or order.customer,
+                table_id=order.table_id, order_type=order.order_type, split_from_id=order.id, version=1, total=0,
+                status=order.status, notes=f"Split from {order.order_number}", branch_id=order.branch_id)
+    db.add(new); db.flush()
+    entries = []
+    for line_id, qty in moving.items():
+        line = lines[line_id]
+        state = db.get(KitchenLine, line.id)
+        if qty == line.quantity - line.voided_quantity and line.voided_quantity == 0:
+            line.order_id = new.id  # the whole line moves, with its kitchen state and reservations
+            order.items.remove(line); new.items.append(line)
+            moved = line
+        else:
+            moved = OrderItem(menu_item_id=line.menu_item_id, quantity=qty, voided_quantity=0, price_at_time=line.price_at_time,
+                              tax_rate_at_time=line.tax_rate_at_time, name_at_time=line.name_at_time,
+                              department_id_at_time=line.department_id_at_time, department_name_at_time=line.department_name_at_time,
+                              ready=line.ready)
+            new.items.append(moved); db.flush()
+            line.quantity -= qty
+            if state is not None:
+                db.add(KitchenLine(order_item_id=moved.id, status=state.status, recipe_snapshot=state.recipe_snapshot,
+                                   started_at=state.started_at, ready_at=state.ready_at, served_at=state.served_at))
+                from .production import quantity
+                for reservation in db.scalars(select(StockReservation).where(StockReservation.order_item_id == line.id)).all():
+                    component = next(c for c in state.recipe_snapshot if c["ingredient_id"] == reservation.ingredient_id)
+                    reservation.quantity = quantity(component["quantity"] * (line.quantity - line.voided_quantity))
+                    db.add(StockReservation(order_item_id=moved.id, ingredient_id=reservation.ingredient_id,
+                                            quantity=quantity(component["quantity"] * qty)))
+                state.version += 1
+        entries.append({"order_item_id": moved.id, "from_order_item_id": line_id, "menu_item_id": moved.menu_item_id,
+                        "name": moved.name_at_time, "quantity": qty, "unit_price": float(moved.price_at_time),
+                        "department_id": moved.department_id_at_time})
+    db.flush()
+    recalculate(order); recalculate(new)
+    order.version += 1
+    # History only: department deliveries are empty, so no ticket prints for the split.
+    db.add(OrderBatch(order_id=new.id, kind="split", items=entries, notes=f"Split from {order.order_number}",
+                      created_by=user.id, deliveries=[]))
+    db.add(OrderStatusHistory(order_id=new.id, status=new.status, changed_by=user.id))
+    record(db, user, "split_bill", "orders", order.id, after={"new_order_id": new.id, "items": entries,
+                                                               "totals": [float(order.total), float(new.total)]})
+    db.commit()
+    return order, new
