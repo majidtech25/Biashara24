@@ -87,6 +87,13 @@ class IngredientCreate(BaseModel):
     description: str | None = None
     reorder_quantity: float = Field(default=0, ge=0)
     cost_per_unit: float = Field(default=0, ge=0)
+class IngredientUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = None
+    min_level: float | None = Field(default=None, ge=0)
+    reorder_quantity: float | None = Field(default=None, ge=0)
+    cost_per_unit: float | None = Field(default=None, ge=0)
+    is_active: bool | None = None
 class StockChange(BaseModel): ingredient_id: int; quantity: float = Field(ge=0); reason: str | None = None
 
 class CarWashCreate(BaseModel):

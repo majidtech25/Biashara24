@@ -21,7 +21,8 @@ def move(db, user, ingredient, delta, reason, reference_type, reference_id):
     ingredient.current_stock = after
     db.add(StockTransaction(ingredient_id=ingredient.id, transaction_type='add' if delta >= 0 else 'deduction',
            quantity=abs(delta), quantity_before=before, quantity_after=after, reason=reason,
-           reference_type=reference_type, reference_id=reference_id, performed_by=user.id))
+           reference_type=reference_type, reference_id=reference_id, performed_by=user.id,
+           unit_cost=Decimal(str(ingredient.cost_per_unit or 0))))
     record(db, user, reference_type, 'stock', ingredient.id, before={'quantity': before}, after={'quantity': after, 'reference_id': reference_id})
 
 

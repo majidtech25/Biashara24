@@ -1,3 +1,4 @@
+from decimal import Decimal
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy import func, select, update
@@ -5,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..middleware.auth import require_roles
 from ..models import Ingredient, StockTransaction, User
-from ..schemas import IngredientCreate, StockChange
+from ..schemas import IngredientCreate, IngredientUpdate, StockChange
 from ..utils.helpers import money, date_window
 from ..services.audit import record
 from ..services.bill_lock import start_write
@@ -38,8 +39,26 @@ def create_ingredient(data: IngredientCreate, db: Session = Depends(get_db), use
     x = Ingredient(**data.model_dump()); db.add(x); db.flush()
     if x.current_stock:
         db.add(StockTransaction(ingredient_id=x.id, transaction_type="add", quantity=x.current_stock,
-               quantity_before=0, quantity_after=x.current_stock, reason="Opening stock", performed_by=user.id))
+               quantity_before=0, quantity_after=x.current_stock, reason="Opening stock", performed_by=user.id,
+               unit_cost=Decimal(str(x.cost_per_unit or 0))))
     record(db, user, "create", "ingredients", x.id, after={"name": x.name, "current_stock": x.current_stock})
+    db.commit(); db.refresh(x)
+    return ingredient_dict(x)
+
+@router.put("/ingredients/{ingredient_id}")
+def update_ingredient(ingredient_id: int, data: IngredientUpdate, db: Session = Depends(get_db), user: User = Depends(auth)):
+    """Change an ingredient's details. A new cost applies to stock moved from now on;
+    food already prepared keeps the cost recorded when it was taken out of stock."""
+    x = db.scalar(select(Ingredient).where(Ingredient.id == ingredient_id).with_for_update())
+    if not x: raise HTTPException(404, "Ingredient not found")
+    changes = data.model_dump(exclude_unset=True)
+    if "name" in changes:
+        changes["name"] = changes["name"].strip()
+        if db.scalar(select(Ingredient.id).where(func.lower(Ingredient.name) == changes["name"].lower(), Ingredient.id != x.id)):
+            raise HTTPException(409, "Ingredient already exists")
+    before = {k: getattr(x, k) for k in changes}
+    for key, value in changes.items(): setattr(x, key, value)
+    record(db, user, "update", "ingredients", x.id, before=before, after=changes)
     db.commit(); db.refresh(x)
     return ingredient_dict(x)
 
@@ -82,7 +101,8 @@ def change_stock(data, kind, db, user, key=None):
                         .values(current_stock=after, last_updated=func.now()).execution_options(synchronize_session=False))
     if result.rowcount != 1: db.rollback(); raise HTTPException(409, "Stock changed; reload and try again")
     t = StockTransaction(ingredient_id=x.id, transaction_type=kind, quantity=data.quantity,
-                         quantity_before=before, quantity_after=after, reason=data.reason, performed_by=user.id)
+                         quantity_before=before, quantity_after=after, reason=data.reason, performed_by=user.id,
+                         unit_cost=Decimal(str(x.cost_per_unit or 0)))
     db.add(t); db.flush()
     record(db, user, kind, "stock", x.id, before={"quantity": before}, after={"quantity": after})
     db.refresh(x)

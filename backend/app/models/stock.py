@@ -1,5 +1,6 @@
 from datetime import datetime
-from sqlalchemy import UniqueConstraint, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from decimal import Decimal
+from sqlalchemy import UniqueConstraint, Boolean, DateTime, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database import Base
 from .branch import BranchScoped
@@ -31,6 +32,8 @@ class StockTransaction(BranchScoped, Base):
     reference_id: Mapped[int | None] = mapped_column(Integer)
     reference_type: Mapped[str | None] = mapped_column(String(40))
     reason: Mapped[str | None] = mapped_column(Text)
+    # Ingredient cost per unit when the stock moved (empty for movements before Nov 2026).
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
     performed_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
     ingredient: Mapped[Ingredient] = relationship()
