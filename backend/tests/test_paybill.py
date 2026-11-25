@@ -83,8 +83,8 @@ def test_bill_shows_paybill_account_and_qr(daraja):
                       "CPI": "600996", "Size": "300"}
         c.get(f"/api/paybill/bill?order_id={order['id']}", headers=director)
         assert len(daraja.bodies("qrcode/v1/generate")) == 1  # the same QR code is reused
-        # Waiters can print their own bills only.
-        assert c.get(f"/api/paybill/bill?order_id={order['id']}", headers=waiter).status_code == 404
+        # The waiter who took the order can print its bill.
+        assert c.get(f"/api/paybill/bill?order_id={order['id']}", headers=waiter).status_code == 200
 
 
 def test_payment_notice_lets_the_cashier_confirm_in_one_step(daraja):

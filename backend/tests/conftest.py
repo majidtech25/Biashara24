@@ -33,3 +33,10 @@ def _reset_login_limiter():
     login_limiter.reset()
     yield
     login_limiter.reset()
+
+
+def waiter_headers(client, email="waiter@gmail.com", password="waiter123"):
+    """Only waiters send orders to the kitchen, so tests post orders as the seeded waiter."""
+    r = client.post("/auth/login", json={"username": email, "password": password})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}

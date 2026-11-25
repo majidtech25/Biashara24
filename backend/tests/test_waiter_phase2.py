@@ -262,3 +262,13 @@ def test_legacy_original_stays_visible_after_addition(workspace):
     assert after['batches'][0]['items'][0]['unit_price']==5.25
     assert after['batches'][0]['items'][0]['quantity']==2
     assert after['batches'][1]['kind']=='addition'
+
+
+def test_only_waiters_send_orders_to_the_kitchen():
+    """Majid, 2026-11-25: the kitchen receives only orders that waiters post."""
+    with TestClient(app) as c:
+        for email, password in (("manager@gmail.com", "manager123"), ("director@gmail.com", "director123"), ("cashier@gmail.com", "cashier123")):
+            token = c.post("/auth/login", json={"username": email, "password": password}).json()["access_token"]
+            h = {"Authorization": "Bearer " + token, "Idempotency-Key": uuid4().hex}
+            assert c.post("/api/orders", headers=h, json={"items": [{"menu_item_id": 1, "quantity": 1}]}).status_code == 403
+            assert c.post("/api/orders/1/items", headers=h, json={"expected_version": 1, "items": [{"menu_item_id": 1, "quantity": 1}]}).status_code == 403

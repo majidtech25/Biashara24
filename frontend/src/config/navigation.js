@@ -41,13 +41,13 @@ export const roles = {
   cashier: {
     label: 'Cashier',
     user: 'Hassan Ali',
-    sidebarLinks: ['checkout', 'pending-bills', 'payment-ledger', 'receipts', 'cashier-carwash', 'shift-summary'],
+    // Majid, 2026-11-25: cashiers settle bills, see pending bills, print receipts and open/close their shift.
+    // They do not see or print sales or shift summaries.
+    sidebarLinks: ['checkout', 'pending-bills', 'receipts', 'reconciliation'],
+    extraPages: ['payment-ledger'],  // confirming an M-Pesa payment is part of settling a bill
     nav: [
-      ['checkout', 'Checkout', ShoppingBag], ['pending-bills', 'Pending Bills', Receipt],
-      ['payment-ledger', 'Payments', CreditCard], ['cash-payment', 'Cash Payment', CircleDollarSign],
-      ['mpesa', 'M-Pesa Confirmation', WalletCards], ['receipts', 'Receipts', Receipt],
-      ['reconciliation', 'Reconciliation', ClipboardCheck], ['cashier-carwash', 'Car Wash', Car],
-      ['shift-summary', 'Shift Summary', BarChart3]
+      ['checkout', 'Settle bills', ShoppingBag], ['pending-bills', 'Pending Bills', Receipt],
+      ['receipts', 'Receipts', Receipt], ['reconciliation', 'Open / close shift', ClipboardCheck]
     ]
   },
   store_manager: {

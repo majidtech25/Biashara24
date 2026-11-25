@@ -17,7 +17,7 @@ export function Orders({title='Orders',checkout=false,pendingOnly=false}){
  const [lines,setLines]=useState([{menu_item_id:'',quantity:1}]),[customer,setCustomer]=useState(''),[notes,setNotes]=useState('');
  const [search,setSearch]=useState(''),[selected,setSelected]=useState(null),[method,setMethod]=useState('cash'),[reference,setReference]=useState('');
  const [receipt,setReceipt]=useState(null),[printing,setPrinting]=useState([]),[cashReceived,setCashReceived]=useState('');
- const action=useAction(query.reload),canCreate=['waiter','manager','director'].includes(user.role),canPay=['cashier','manager','director'].includes(user.role),canManage=['manager','director'].includes(user.role);
+ const action=useAction(query.reload),canCreate=user.role==='waiter',canPay=['cashier','manager','director'].includes(user.role),canManage=['manager','director'].includes(user.role);
  let rows=query.data||[];if(pendingOnly||checkout)rows=rows.filter(o=>!['cleared','completed','cancelled'].includes(o.status));
  async function create(e){e.preventDefault();const current=submission||{key:crypto.randomUUID(),payload:{table_id:Number(tableId),customer,notes,items:lines.map(l=>({menu_item_id:Number(l.menu_item_id),quantity:Number(l.quantity)}))}};setSubmission(current);
  const ok=await action.run(async()=>{try{const r=await request('/api/orders',{method:'POST',headers:{'Idempotency-Key':current.key},body:JSON.stringify(current.payload)});setPrinting(r.batches.flatMap(b=>b.deliveries))}catch(e){if(e.status&&e.status<500)setSubmission(null);throw e}});

@@ -10,7 +10,7 @@ from ..database import get_db
 from ..middleware.auth import require_roles, current_user
 from ..schemas import BaseModel
 from ..models import (User, Order, OrderItem, Ingredient, Recipe, KitchenLine, Notification,
-                      Supplier, StockDocument, FoodWaste, BusinessSettings, Department)
+                      Supplier, StockDocument, FoodWaste, BusinessSettings, Department, DiningTable)
 from ..models.user import now
 from ..services.bill_lock import start_write, bill, pending
 from ..services.audit import record
@@ -81,11 +81,16 @@ def kitchen_scope(query, user):
 def kitchen_lines(department_id: int | None = None, db: Session = Depends(get_db), user=Depends(production_auth)):
     query = select(KitchenLine, OrderItem, Order).join(OrderItem, OrderItem.id == KitchenLine.order_item_id).join(Order, Order.id == OrderItem.order_id).where(KitchenLine.status.not_in(['served', 'cancelled']))
     if department_id: query = query.where(OrderItem.department_id_at_time == department_id)
+    rows = db.execute(kitchen_scope(query, user).order_by(OrderItem.created_at).limit(500)).all()
+    ids = {order.table_id for _, _, order in rows if order.table_id}
+    tables = dict(db.execute(select(DiningTable.id, DiningTable.number).where(DiningTable.id.in_(ids))).all()) if ids else {}
     return [fields(state, 'order_item_id status version started_at ready_at served_at') | {
         'id': line.id, 'order_id': order.id, 'order_number': order.order_number,
         'name': line.name_at_time or line.menu_item.name, 'department': line.department_name_at_time,
         'quantity': line.quantity - line.voided_quantity, 'recipe_configured': bool(state.recipe_snapshot),
-        'created_at': line.created_at} for state, line, order in db.execute(kitchen_scope(query, user).order_by(OrderItem.created_at).limit(500))]
+        'created_at': line.created_at, 'order_type': order.order_type, 'customer': order.customer, 'notes': order.notes,
+        'table_number': tables.get(order.table_id), 'waiter': (order.waiter.full_name or order.waiter.username) if order.waiter else None}
+        for state, line, order in rows]
 
 
 class KitchenUpdate(BaseModel):

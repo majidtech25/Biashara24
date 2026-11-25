@@ -1,3 +1,4 @@
+from conftest import waiter_headers
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from uuid import uuid4
@@ -37,7 +38,7 @@ def new_table(c,h):
 
 def new_order(c,h):
     a,b=new_menu(c,h,120),new_menu(c,h,80)
-    r=c.post("/api/orders",headers={**h,"Idempotency-Key":uuid4().hex},json={"table_id":new_table(c,h),"items":[{"menu_item_id":a["id"],"quantity":2},{"menu_item_id":b["id"],"quantity":1}]})
+    r=c.post("/api/orders",headers={**waiter_headers(c),"Idempotency-Key":uuid4().hex},json={"table_id":new_table(c,h),"items":[{"menu_item_id":a["id"],"quantity":2},{"menu_item_id":b["id"],"quantity":1}]})
     assert r.status_code==201,r.text
     assert r.json()["total"]==320
     return r.json()
@@ -167,7 +168,7 @@ def test_protected_routes(client,path):
 
 def test_role_boundaries_and_refresh(client):
     c=client;cashier=login(c,"cashier@gmail.com","cashier123")
-    for path in ["/api/dashboard","/api/reports/daily","/api/admin/users","/api/stock/ingredients"]:
+    for path in ["/api/dashboard","/api/reports/daily","/api/admin/users","/api/stock/ingredients","/api/payments/daily-summary"]:  # no sales summaries for cashiers
         assert c.get(path,headers=cashier).status_code==403
     assert c.post("/auth/refresh",headers=cashier).status_code==200
     assert c.post("/auth/refresh").status_code==401

@@ -18,6 +18,7 @@ from ..services.audit import record
 router=APIRouter(prefix="/api", tags=["Orders"])
 readers=require_roles("waiter","cashier","manager","director")
 writers=require_roles("waiter","manager","director")
+waiters=require_roles("waiter")  # only waiters send orders to the kitchen
 managers=require_roles("manager","director")
 
 @router.get("/menu")
@@ -83,7 +84,7 @@ def get_order(order_id:int,db:Session=Depends(get_db),user:User=Depends(readers)
 
 @router.post("/orders",status_code=201)
 def create_order(data:OrderCreate,idempotency_key:str=Header(min_length=8,max_length=100),
-                 db:Session=Depends(get_db),user:User=Depends(writers)):
+                 db:Session=Depends(get_db),user:User=Depends(waiters)):
     start_write(db)
     order,submission=workflow.create(db,user,data,idempotency_key)
     workflow.deliver(db,order,submission)
@@ -91,7 +92,7 @@ def create_order(data:OrderCreate,idempotency_key:str=Header(min_length=8,max_le
 
 @router.post("/orders/{order_id}/items",status_code=201)
 def add_items(order_id:int,data:OrderAddition,idempotency_key:str=Header(min_length=8,max_length=100),
-              db:Session=Depends(get_db),user:User=Depends(writers)):
+              db:Session=Depends(get_db),user:User=Depends(waiters)):
     start_write(db)
     order,submission=workflow.add(db,user,order_id,data,idempotency_key)
     workflow.deliver(db,order,submission)

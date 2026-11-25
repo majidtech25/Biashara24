@@ -88,3 +88,23 @@ def test_editing_bays_services_and_attendants():
         assert c.put(f"/api/carwash/{wash['id']}/wash", headers=cashier,
                      json={"status": "washing", "attendant_id": attendant["id"]}).status_code == 400
         assert c.post("/api/carwash/attendants", headers=cashier, json={"name": "Nope"}).status_code == 403
+
+
+def test_quick_sale_needs_only_plate_amount_and_payment_method():
+    """Car wash POS (Majid, 2026-11-25): number plate, amount, and M-Pesa or cash."""
+    with TestClient(app) as c:
+        manager = login(c, "carwash@gmail.com", "carwash123")
+        cash = c.post("/api/carwash/transaction", headers={**manager, "Idempotency-Key": uuid4().hex},
+                      json={"vehicle_plate": "KDA 123A", "amount": 450, "payment_method": "cash"})
+        assert cash.status_code == 201, cash.text
+        assert cash.json()["payment_status"] == "completed" and cash.json()["wash_status"] == "done"
+        assert cash.json()["amount"] == 450 and cash.json()["bay_id"] is None
+        # M-Pesa to the Paybill: recorded now, confirmed by staff once the receipt arrives.
+        mpesa = c.post("/api/carwash/transaction", headers={**manager, "Idempotency-Key": uuid4().hex},
+                       json={"vehicle_plate": "KCB 456B", "amount": 600, "payment_method": "m-pesa", "pay_later": True})
+        assert mpesa.status_code == 201, mpesa.text
+        assert mpesa.json()["payment_status"] == "pending"
+        # A bay without a service is still refused: the full form needs both.
+        bay, service, _ = _setup(c, manager)
+        assert c.post("/api/carwash/transaction", headers={**manager, "Idempotency-Key": uuid4().hex},
+                      json={"vehicle_plate": "KDG 789C", "amount": 800, "payment_method": "cash", "bay_id": bay["id"]}).status_code == 400

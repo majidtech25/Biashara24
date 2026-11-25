@@ -1,3 +1,4 @@
+from conftest import waiter_headers
 from uuid import uuid4
 from fastapi.testclient import TestClient
 from app.main import app
@@ -78,7 +79,7 @@ def test_receiving_count_review_and_preparation_department_access():
         post(c, '/api/admin/users', manager, {'username': username, 'password': 'Kitchen123!', 'role': 'kitchen', 'department_id': menu['department_id']})
         kitchen = login(c, username, 'Kitchen123!')
         other = new_menu(c, manager)
-        first = post(c, '/api/orders', manager, {'table_id': new_table(c, manager), 'items': [{'menu_item_id': menu['id'], 'quantity': 1}, {'menu_item_id': other['id'], 'quantity': 1}]})
+        first = post(c, '/api/orders', waiter_headers(c), {'table_id': new_table(c, manager), 'items': [{'menu_item_id': menu['id'], 'quantity': 1}, {'menu_item_id': other['id'], 'quantity': 1}]})
         lines = c.get('/api/kitchen/lines', headers=kitchen).json()
         ids = {line['order_item_id'] for line in lines}
         assert first['items'][0]['id'] in ids and first['items'][1]['id'] not in ids
@@ -116,7 +117,7 @@ def test_cancellation_before_preparation_releases_without_deduction():
         menu=new_menu(c,h)
         ingredient=post(c,'/api/stock/ingredients',h,{'name':uuid4().hex,'unit':'kg','min_level':0,'current_stock':1})
         post(c,'/api/recipes',h,{'menu_item_id':menu['id'],'components':[{'ingredient_id':ingredient['id'],'quantity':1}]})
-        order=post(c,'/api/orders',h,{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
+        order=post(c,'/api/orders',waiter_headers(c),{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
         assert c.delete(f"/api/orders/{order['id']}",headers=h).status_code==204
         post(c,'/api/stock/deduct',h,{'ingredient_id':ingredient['id'],'quantity':1,'reason':'Reservation released'})
 
@@ -124,7 +125,7 @@ def test_cancellation_before_preparation_releases_without_deduction():
 def test_printer_recovery_does_not_repeat_network_send(monkeypatch):
     with TestClient(app) as c:
         h=login(c);menu=new_menu(c,h)
-        order=post(c,'/api/orders',h,{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
+        order=post(c,'/api/orders',waiter_headers(c),{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
         post(c,'/api/admin/printer-config',h,{'department_id':menu['department_id'],'printer_ip':'192.168.1.80','printer_port':9100})
         from unittest.mock import Mock
         sender=Mock(return_value={'status':'uncertain','detail':'Connection interrupted'})
@@ -159,7 +160,7 @@ def test_concurrent_preparation_consumes_once():
         h=login(c);menu=new_menu(c,h)
         ingredient=post(c,'/api/stock/ingredients',h,{'name':uuid4().hex,'unit':'kg','min_level':0,'current_stock':10})
         post(c,'/api/recipes',h,{'menu_item_id':menu['id'],'components':[{'ingredient_id':ingredient['id'],'quantity':2}]})
-        order=post(c,'/api/orders',h,{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
+        order=post(c,'/api/orders',waiter_headers(c),{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
         path=f"/api/kitchen/lines/{order['items'][0]['id']}"
         with ThreadPoolExecutor(max_workers=2) as pool:
             responses=list(pool.map(lambda _:c.put(path,headers=h,json={'expected_version':1,'status':'preparing'}),range(2)))
@@ -173,7 +174,7 @@ def test_transfer_preserves_lines_and_notifies_new_waiter():
     from sqlalchemy import select
     with TestClient(app) as c:
         h=login(c);menu=new_menu(c,h)
-        order=post(c,'/api/orders',h,{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
+        order=post(c,'/api/orders',waiter_headers(c),{'table_id':new_table(c,h),'items':[{'menu_item_id':menu['id'],'quantity':1}]})
         with SessionLocal() as db: waiter_id=db.scalar(select(User.id).where(User.username=='waiter@gmail.com'))
         destination=new_table(c,h)
         transferred=post(c,f"/api/orders/{order['id']}/transfer",h,{'expected_version':order['version'],'table_id':destination,'waiter_id':waiter_id,'reason':'Service reassignment'})
