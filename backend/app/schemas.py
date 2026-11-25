@@ -94,6 +94,9 @@ class IngredientUpdate(BaseModel):
     reorder_quantity: float | None = Field(default=None, ge=0)
     cost_per_unit: float | None = Field(default=None, ge=0)
     is_active: bool | None = None
+class PackInput(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    factor: float = Field(gt=0, le=1000000)
 class StockChange(BaseModel): ingredient_id: int; quantity: float = Field(ge=0); reason: str | None = None
 
 class CarWashCreate(BaseModel):

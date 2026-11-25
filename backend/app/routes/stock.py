@@ -5,9 +5,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..middleware.auth import require_roles
-from ..models import Ingredient, StockTransaction, User
-from ..schemas import IngredientCreate, IngredientUpdate, StockChange
-from ..utils.helpers import money, date_window
+from ..models import Ingredient, IngredientPack, StockBatch, StockTransaction, User
+from ..schemas import IngredientCreate, IngredientUpdate, PackInput, StockChange
+from ..utils.helpers import money, date_window, business_today
 from ..services.audit import record
 from ..services.bill_lock import start_write
 from ..services.transactions import begin_submission, finish_submission
@@ -17,7 +17,8 @@ auth = require_roles("store_manager", "manager", "director")
 
 def ingredient_dict(x):
     return {k: getattr(x, k) for k in ("id", "name", "unit", "description", "min_level", "current_stock",
-            "reorder_quantity", "cost_per_unit", "is_active", "last_updated")} | {"is_low": x.current_stock < x.min_level}
+            "reorder_quantity", "cost_per_unit", "is_active", "last_updated")} | {"is_low": x.current_stock < x.min_level,
+            "packs": [{"id": p.id, "name": p.name, "factor": float(p.factor)} for p in x.packs]}
 
 def transaction_dict(x):
     return {"id": x.id, "ingredient_id": x.ingredient_id, "ingredient": x.ingredient.name,
@@ -62,6 +63,42 @@ def update_ingredient(ingredient_id: int, data: IngredientUpdate, db: Session = 
     db.commit(); db.refresh(x)
     return ingredient_dict(x)
 
+@router.post("/ingredients/{ingredient_id}/packs", status_code=201)
+def add_pack(ingredient_id: int, data: PackInput, db: Session = Depends(get_db), user: User = Depends(auth)):
+    """A pack size, e.g. "50 kg bag" = 50 kg. Deliveries and counts can then be entered in packs."""
+    x = db.scalar(select(Ingredient).where(Ingredient.id == ingredient_id))
+    if not x: raise HTTPException(404, "Ingredient not found")
+    name = data.name.strip()
+    if any(p.name.lower() == name.lower() for p in x.packs): raise HTTPException(409, "This pack already exists")
+    pack = IngredientPack(ingredient_id=x.id, name=name, factor=Decimal(str(data.factor)))
+    db.add(pack); db.flush()
+    record(db, user, "add_pack", "ingredients", x.id, after={"pack": name, "factor": data.factor, "unit": x.unit})
+    db.commit(); db.refresh(x)
+    return ingredient_dict(x)
+
+@router.delete("/ingredients/{ingredient_id}/packs/{pack_id}")
+def remove_pack(ingredient_id: int, pack_id: int, db: Session = Depends(get_db), user: User = Depends(auth)):
+    x = db.scalar(select(Ingredient).where(Ingredient.id == ingredient_id))
+    pack = db.get(IngredientPack, pack_id)
+    if not x or not pack or pack.ingredient_id != x.id: raise HTTPException(404, "Pack not found")
+    record(db, user, "remove_pack", "ingredients", x.id, before={"pack": pack.name, "factor": float(pack.factor)})
+    x.packs.remove(pack)
+    db.commit(); db.refresh(x)
+    return ingredient_dict(x)
+
+@router.get("/expiry")
+def expiry(days: int = Query(7, ge=0, le=365), db: Session = Depends(get_db), _=Depends(auth)):
+    """Stock batches already expired or expiring within `days`, soonest first."""
+    today = business_today()
+    from datetime import timedelta
+    rows = db.execute(select(StockBatch, Ingredient).join(Ingredient, Ingredient.id == StockBatch.ingredient_id)
+                      .where(StockBatch.remaining > 0, StockBatch.expiry_date <= today + timedelta(days=days))
+                      .order_by(StockBatch.expiry_date, StockBatch.id)).all()
+    return [{"id": b.id, "ingredient_id": i.id, "ingredient": i.name, "unit": i.unit, "remaining": b.remaining,
+             "received": b.quantity, "expiry_date": b.expiry_date, "days_left": (b.expiry_date - today).days,
+             "status": "expired" if b.expiry_date < today else "expiring", "value": money(b.remaining * (i.cost_per_unit or 0)),
+             "document_id": b.document_id} for b, i in rows]
+
 @router.get("/ingredients/{ingredient_id}")
 def get_ingredient(ingredient_id: int, db: Session = Depends(get_db), _=Depends(auth)):
     x = db.get(Ingredient, ingredient_id)
@@ -100,6 +137,9 @@ def change_stock(data, kind, db, user, key=None):
     result = db.execute(update(Ingredient).where(Ingredient.id == x.id, Ingredient.current_stock == before)
                         .values(current_stock=after, last_updated=func.now()).execution_options(synchronize_session=False))
     if result.rowcount != 1: db.rollback(); raise HTTPException(409, "Stock changed; reload and try again")
+    if after < before:
+        from ..services.production import use_batches
+        use_batches(db, x.id, before - after)
     t = StockTransaction(ingredient_id=x.id, transaction_type=kind, quantity=data.quantity,
                          quantity_before=before, quantity_after=after, reason=data.reason, performed_by=user.id,
                          unit_cost=Decimal(str(x.cost_per_unit or 0)))
