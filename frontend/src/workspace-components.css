@@ -26,3 +26,8 @@
 .bay-status{margin:0;font-weight:600;font-size:13px}.bay-free{border-left:5px solid #9bbd87}.bay-waiting{border-left:5px solid #e0b04a}.bay-washing{border-left:5px solid #4a8be0}
 .mpesa-prompt{display:grid;gap:8px;padding:12px;border:1px solid var(--border);border-radius:10px;background:#f7fbf4;margin:8px 0}
 .mpesa-prompt p{margin:0}.mpesa-prompt.paid{border-color:#9bbd87;background:#e9f5e1}.mpesa-prompt .muted{color:#5c6b5a;font-size:13px}
+.paybill-block{display:grid;justify-items:center;gap:6px;margin:12px 0;padding:10px;border:1px dashed #9bbd87;border-radius:8px;text-align:center}
+.paybill-block dl{display:grid;gap:2px;margin:0;width:100%}.paybill-block dl div{display:flex;justify-content:space-between}.paybill-block dt{color:#5c6b5a}.paybill-block dd{margin:0;font-weight:600}
+.paybill-received{display:grid;gap:6px;padding:10px;border:1px solid var(--border);border-radius:10px;background:#f7fbf4;margin:8px 0}
+.paybill-received ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}.paybill-received li{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
+.paybill-received li.used{opacity:.6}.paybill-received .muted,.paybill-block .muted{color:#5c6b5a;font-size:13px;margin:0}

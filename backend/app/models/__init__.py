@@ -6,7 +6,7 @@ from .transaction import WriteSubmission, ExternalReceipt
 from .operations import Recipe, StockReservation, KitchenLine, FoodWaste, Notification, Supplier, StockDocument, CashShift, TillMovement, Refund, BusinessSettings
 from .stock import Ingredient, StockTransaction
 from .carwash import CarWashTransaction, CarWashBay, CarWashService, CarWashAttendant
-from .mpesa import MpesaRequest
+from .paybill import C2BPayment
 from .dashboard import DailySummary, AuditLog
 from .waiter import DiningTable, TableReservation, OrderBatch, BillSubmission, BillChangeRequest
 

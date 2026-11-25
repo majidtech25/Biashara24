@@ -1,4 +1,5 @@
-"""Records money received externally; cashless confirmation is manual."""
+"""Records money received. Cash and Paybill payments Safaricom reported are confirmed at entry;
+other cashless references are confirmed by staff."""
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from pydantic import BaseModel, Field, field_validator
@@ -65,13 +66,17 @@ def clear_order(order_id: int, data: PaymentCreate, db: Session = Depends(get_db
     reference = data.reference.upper().strip() if data.reference else None
     if data.method == "m-pesa" and not reference:
         raise HTTPException(400, "Enter the cashless receipt reference")
-    # Cash is confirmed at entry. Cashless references await staff confirmation.
-    completed = data.method == "cash"
+    # Cash is confirmed at entry. An M-Pesa receipt that Safaricom reported to the Paybill is
+    # confirmed too; any other cashless reference awaits staff confirmation.
+    from ..services.mpesa import claim
+    paybill = claim(db, reference, data.amount, order.branch_id, order_id=order.id) if data.method == "m-pesa" else None
+    completed = data.method == "cash" or paybill is not None
+    is_cash = data.method == "cash"
     from ..services.cash_office import shift_for_payment
     from ..models import BusinessSettings
     shift = shift_for_payment(db, user)
     tendered = data.tendered_amount if data.tendered_amount is not None else data.amount
-    if completed and tendered < data.amount: raise HTTPException(400, 'Cash tendered is less than the bill total.')
+    if is_cash and tendered < data.amount: raise HTTPException(400, 'Cash tendered is less than the bill total.')
     business = db.get(BusinessSettings, 1)
     now = datetime.utcnow()
     from ..utils.helpers import order_dict
@@ -79,7 +84,7 @@ def clear_order(order_id: int, data: PaymentCreate, db: Session = Depends(get_db
     snapshot = order_dict(order)
     payment = Payment(order_id=order.id, active_order_id=order.id, amount=data.amount, method=data.method,
                       shift_id=shift.id if shift else None, recorded_by=user.id,
-                      tendered_amount=tendered if completed else None, change_amount=money(tendered-data.amount) if completed else None,
+                      tendered_amount=tendered if is_cash else None, change_amount=money(tendered-data.amount) if is_cash else None,
                       receipt_snapshot=jsonable_encoder({k: snapshot[k] for k in ('order_number','table_number','waiter','items','tax_summary','total')} | {'business': business.values if business else {'business_name':'Biashara360'}}),
                       status="completed" if completed else "pending", reference=reference, notes=data.notes,
                       verified_by=user.id if completed else None, completed_at=now if completed else None)
@@ -91,6 +96,7 @@ def clear_order(order_id: int, data: PaymentCreate, db: Session = Depends(get_db
     try:
         db.flush()
         if data.method == 'm-pesa': reserve_receipt(db, reference, 'payment', payment.id)
+        if paybill is not None: paybill.payment_id = payment.id
         record(db, user, "record", "payments", payment.id, after={"amount": payment.amount, "status": payment.status})
         finish_submission(submission, out(payment))
         db.commit()
@@ -144,6 +150,9 @@ def verify(payment_id: int, db: Session = Depends(get_db), user: User = Depends(
     if payment.method != "m-pesa": raise HTTPException(400, "Only cashless payments need manual verification")
     if payment.status == "completed": return out(payment)
     if payment.status != "pending" or not payment.reference: raise HTTPException(409, "Payment cannot be verified")
+    from ..services.mpesa import claim
+    paybill = claim(db, payment.reference, payment.amount, payment.order.branch_id, order_id=payment.order_id)
+    if paybill is not None: paybill.payment_id = payment.id
     payment.status = "completed"; payment.completed_at = datetime.utcnow(); payment.verified_by = user.id
     payment.order.status = "cleared"; payment.order.cleared_at = payment.completed_at
     payment.order.version += 1

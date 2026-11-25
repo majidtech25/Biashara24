@@ -94,19 +94,23 @@ def create(data: CarWashCreate, db: Session = Depends(get_db), user: User = Depe
     from ..services.cash_office import shift_for_payment
     shift = shift_for_payment(db, user)
     if money(data.amount) != money(service.price): raise HTTPException(400, "Amount must match the service price")
-    if data.payment_method == "m-pesa" and not data.mpesa_reference and not data.mpesa_prompt: raise HTTPException(400, "Cashless receipt reference is required")
+    if data.payment_method == "m-pesa" and not data.mpesa_reference and not data.pay_later: raise HTTPException(400, "Cashless receipt reference is required")
     if busy_wash(db, data.bay_id): raise HTTPException(409, "This bay already has a car. Finish that wash or choose another bay.")
     if data.attendant_id: active_attendant(db, data.attendant_id)
-    values = data.model_dump(exclude={"mpesa_prompt"})
+    values = data.model_dump(exclude={"pay_later"})
     values["wash_status"] = "waiting"
-    # A cashless entry awaits manual confirmation against the external receipt.
-    if data.payment_method == "m-pesa": values["payment_status"] = "pending"
+    # A cashless entry awaits manual confirmation, unless Safaricom already reported the receipt.
+    from ..services.mpesa import claim
+    from ..branching import require_branch
+    paybill = claim(db, data.mpesa_reference, data.amount, require_branch(db)) if data.payment_method == "m-pesa" and data.mpesa_reference else None
+    if data.payment_method == "m-pesa" and paybill is None: values["payment_status"] = "pending"
     else: values['payment_status'] = 'completed'
     x = CarWashTransaction(**values, transaction_number="CW-" + uuid4().hex[:12].upper(),
           shift_id=shift.id if shift else None, service_name_at_time=service.name,
           created_by=user.id, completed_at=datetime.utcnow() if values["payment_status"] == "completed" else None)
     db.add(x); db.flush()
     if data.payment_method == 'm-pesa' and data.mpesa_reference: x.mpesa_reference = reserve_receipt(db, data.mpesa_reference, 'carwash', x.id)
+    if paybill is not None: paybill.carwash_id = x.id
     record(db, user, "create", "carwash", x.id, after={"amount": x.amount, "payment_status": x.payment_status})
     finish_submission(submission, out(x))
     db.commit(); db.refresh(x)
@@ -152,9 +156,14 @@ def complete(transaction_id: int, data: ManualConfirm | None = None, db: Session
         from ..services.cash_office import shift_for_payment
         shift = shift_for_payment(db, user)
         x.shift_id = shift.id if shift else None
-    if x.payment_method == "m-pesa" and not x.mpesa_reference:
-        # Sent as a prompt that never completed: the customer paid another way.
+    if x.payment_method == "m-pesa" and x.mpesa_reference:
+        from ..services.mpesa import claim
+        claim(db, x.mpesa_reference, x.amount, x.branch_id, carwash_id=x.id)
+    elif x.payment_method == "m-pesa" and not x.mpesa_reference:
+        # Logged to be paid later by Paybill: the receipt number is needed now.
         if not data or not data.mpesa_reference: raise HTTPException(400, "Enter the M-Pesa receipt number from the customer's message.")
+        from ..services.mpesa import claim
+        claim(db, data.mpesa_reference, x.amount, x.branch_id, carwash_id=x.id)
         x.mpesa_reference = reserve_receipt(db, data.mpesa_reference, "carwash", x.id)
     x.payment_status = "completed"; x.completed_at = datetime.utcnow()
     record(db, user, "manual_payment_confirmation", "carwash", x.id, after={"status": "completed"})
