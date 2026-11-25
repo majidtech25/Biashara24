@@ -72,14 +72,20 @@ export function BusinessSettings(){
  const query=useData('/api/settings'),action=useAction(query.reload);
  return <><PageHeader title="Business Settings" subtitle="Receipt details are saved with each new payment" action="Refresh" onAction={query.reload}/><Feedback query={query}/>{query.data&&<Panel title="Restaurant details"><EntryForm key={query.data.version} action={action} fields={[
  {name:'business_name',label:'Business name',value:query.data.business_name},{name:'address',label:'Address',value:query.data.address,required:false},{name:'phone',label:'Phone',value:query.data.phone,required:false},{name:'require_cashier_shift',label:'Require an open shift for payments',options:[{value:'true',label:'Require shift'},{value:'false',label:'Optional during transition'}]}
- ]} onSave={v=>action.run(()=>http.put('/api/settings',{...v,expected_version:query.data.version,require_cashier_shift:v.require_cashier_shift==='true'}))}/><p>Current shift policy: {query.data.require_cashier_shift?'Required':'Optional during transition'}. Prices include 16% VAT.</p></Panel>}</>;
+ ]} onSave={v=>action.run(()=>http.put('/api/settings',{...v,expected_version:query.data.version,require_cashier_shift:v.require_cashier_shift==='true'}))}/><p>Current shift policy: {query.data.require_cashier_shift?'Required':'Optional during transition'}. Prices include 16% VAT.</p></Panel>}<MenuPhotoCleanup/></>;
+}
+
+function MenuPhotoCleanup(){
+ const {user}=useAuth(),[result,setResult]=useState(null),action=useAction();
+ if(user.role!=='director')return null;
+ return <Panel title="Menu photos"><p>New photos are made smaller automatically. Photos that no menu item uses any more (for example, ones replaced by a newer photo) can be removed to save space. Photos uploaded today are kept.</p><button className="btn" disabled={action.busy} onClick={()=>action.run(async()=>setResult(await http.post('/api/admin/menu-images/cleanup',{})))}>Remove unused photos</button><ActionFeedback action={action}/>{result&&<p role="status">Removed {result.removed} unused photo(s).</p>}</Panel>;
 }
 
 export function PrinterRecovery(){
  const query=useData('/api/printer-jobs'),action=useAction(query.reload),[selected,setSelected]=useState(null);
  const rows=(query.data||[]).flatMap(b=>b.deliveries.map(d=>({...d,id:b.id+'-'+d.department_id,batch_id:b.id,kind:b.kind,created_at:b.created_at})));
  return <><PageHeader title="Printer Recovery" subtitle="Inspect the physical printer before authorising another copy" action="Refresh" onAction={query.reload}/><Feedback query={query}/><ActionFeedback action={action}/><Panel title="Saved tickets"><Table columns={[
- ['batch_id','Ticket'],['department','Station'],['kind','Type'],['status','Delivery'],['created_at','Created']
+ ['batch_id','Ticket'],['department','Station'],['kind','Type'],['status','Delivery',(v,r)=>({sent:'Printed',queued:'Waiting to print',not_sent:'Printer not reached'+(r.attempts?' (tried '+r.attempts+'×, retrying for 30 min)':' (retrying)'),uncertain:'May have printed: check the station',failed:'Printer address is wrong',not_configured:'No printer set'})[v]||v],['created_at','Created']
  ]} rows={rows} actions={row=><button className="btn" onClick={()=>setSelected(row)}>Review reprint</button>}/></Panel>{selected&&<WorkspaceDialog title="Authorise ticket reprint" onClose={()=>setSelected(null)}><p>A delivery marked uncertain may already have printed. Check with the preparation station before continuing.</p><form className="live-form" onSubmit={async e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget));if(await action.run(()=>retryablePost('/api/printer-jobs/'+selected.batch_id+'/retry',{department_id:selected.department_id,reason:v.reason,acknowledge_duplicate_risk:true})))setSelected(null)}}><Field label="Reason"><input name="reason" minLength={3} required/></Field><label><input type="checkbox" required/> I checked the station and authorise another copy.</label><button className="btn primary" disabled={action.busy}>Reprint ticket</button></form></WorkspaceDialog>}</>;
 }
 

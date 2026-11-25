@@ -39,3 +39,15 @@ class BranchMenuItem(Base):
     menu_item_id: Mapped[int] = mapped_column(ForeignKey("menu_items.id"), index=True)
     available: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
+class BranchPrinter(Base):
+    """A department's printer at one branch. Without one, the department's own printer is used."""
+    __tablename__ = "branch_printers"
+    __table_args__ = (UniqueConstraint("branch_id", "department_id", name="uq_branch_printer"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), index=True)
+    department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), index=True)
+    printer_ip: Mapped[str] = mapped_column(String(80))
+    printer_port: Mapped[int] = mapped_column(default=9100)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

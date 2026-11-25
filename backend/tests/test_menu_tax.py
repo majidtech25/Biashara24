@@ -18,7 +18,7 @@ def test_manager_photo_menu_and_tax_lifecycle():
         r=c.post('/api/admin/menu-images',headers=manager,json=upload)
         assert r.status_code==201,r.text
         image=r.json()['image_url']
-        r=c.get(image);assert r.content==png and r.headers['content-type']=='image/png'
+        r=c.get(image);assert r.content[:4]==b'RIFF' and r.content[8:12]==b'WEBP' and r.headers['content-type']=='image/webp'  # stored resized as WebP
         item=new_menu(c,manager,116)
         r=c.put('/api/admin/menu/'+str(item['id']),headers=manager,json={"description":"Fresh pilau", "image_url":image})
         assert r.status_code==200,r.text

@@ -89,3 +89,4 @@ class MenuImage(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     content_type: Mapped[str] = mapped_column(String(30))
     content: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, default=now)

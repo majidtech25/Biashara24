@@ -17,6 +17,7 @@ if TEST_DATABASE_URL and TEST_DATABASE_URL.startswith("postgresql"):
         connection.execute(text("CREATE SCHEMA public"))
     _engine.dispose()
 os.environ["ENVIRONMENT"] = "development"
+os.environ["PRINT_RETRY_SECONDS"] = "0"  # tests call the retry directly
 
 def pytest_sessionfinish(session, exitstatus):
     from app.database import engine

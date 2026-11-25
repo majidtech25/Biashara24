@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     mpesa_business_name: str = ""  # name shown with the QR code; defaults to the app name
     mpesa_callback_url: str = ""  # public HTTPS address of this server, e.g. https://pos.example.co.ke
     mpesa_callback_token: str = ""  # long random secret, part of the address Safaricom posts payments to
+    # Seconds between background retries of kitchen tickets whose printer could not be reached (0 turns it off).
+    print_retry_seconds: int = 30
     allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:5500"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
