@@ -1,6 +1,6 @@
 # Biashara360 Frontend
 
-React/Vite interface with designation selection and authenticated role-based workspaces.
+React/Vite interface with one sign-in page and role-based workspaces.
 
 ```powershell
 npm.cmd install
@@ -11,20 +11,20 @@ Start the backend on port 8000 first. The frontend defaults to `http://127.0.0.1
 
 ## Entry flow
 
-1. `/` is the public landing page. Sign in opens the designation selection screen.
-2. `/login` displays the company roles, including Waiter as cards.
-3. Selecting a designation opens its separate login page, which asks for an email address and password. Change designation returns to the cards.
-4. `POST /auth/login` checks the credentials and selected role. A role mismatch is rejected before tokens are issued.
-5. `GET /auth/me` verifies the session. Route guards open only the account's assigned workspace. An authorized deep link is restored after login.
+1. `/` is the public landing page. Sign in opens the one sign-in page at `/login`.
+2. Everyone signs in on that page with their email address and password. There is no role to choose.
+3. `POST /auth/login` checks the credentials. `GET /auth/me` returns the account and its role.
+4. The app opens the workspace for that role. Route guards block every other role's pages, and the server checks the role on every request. An authorized deep link is restored after login.
+5. Old links such as `/login/cashier` open the same sign-in page.
 
-| Designation | Login page | Initial email | Initial password |
+| Role | Opens at | Initial email | Initial password |
 | --- | --- | --- | --- |
-| Director | `/login/director` | director@gmail.com | director123 |
-| Manager | `/login/manager` | manager@gmail.com | manager123 |
-| Cashier | `/login/cashier` | cashier@gmail.com | cashier123 |
-| Waiter | `/login/waiter` | waiter@gmail.com | waiter123 |
-| Store Manager | `/login/store_manager` | store@gmail.com | store123 |
-| Car Wash Manager | `/login/carwash_manager` | carwash@gmail.com | carwash123 |
+| Director | `/director` | director@gmail.com | director123 |
+| Manager | `/manager` | manager@gmail.com | manager123 |
+| Cashier | `/cashier` | cashier@gmail.com | cashier123 |
+| Waiter | `/waiter` | waiter@gmail.com | waiter123 |
+| Store Manager | `/store_manager` | store@gmail.com | store123 |
+| Car Wash Manager | `/carwash_manager` | carwash@gmail.com | carwash123 |
 
 In development mode, the backend creates missing initial accounts at startup and stores hashed passwords. Existing accounts and later password changes are preserved. These credentials are not bundled into the frontend or displayed on the public pages. The login request uses the existing `username` API field to submit the employee's email address.
 

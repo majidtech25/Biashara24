@@ -6,13 +6,12 @@ import RolePage from './pages/RolePages';
 import {AppStore,useAppStore} from './state/AppStore';
 import {AuthProvider,useAuth} from './auth/AuthContext';
 import {BranchPicker,useBranchContext} from './pages/Branches';
-import {AccessDenied,DesignationPicker,Landing,Login,SessionGate,homeFor} from './pages/PublicPages';
+import {AccessDenied,Landing,Login,SessionGate,homeFor} from './pages/PublicPages';
 
 function RequireAuth(){
   const {user,status}=useAuth();const location=useLocation();
   if(status==='checking'||status==='unavailable')return <SessionGate/>;
-  const requestedRole=location.pathname.split('/')[1];
-  if(!user)return <Navigate to={roles[requestedRole]?'/login/'+requestedRole:'/login'} state={{from:location.pathname}} replace/>;
+  if(!user)return <Navigate to="/login" state={{from:location.pathname}} replace/>;
   return <Outlet/>;
 }
 function RequireRole({role}){const {user}=useAuth();return user.role===role?<AppStore key={`${user.id}-${role}`}><Workspace role={role}/></AppStore>:<AccessDenied/>}
@@ -46,6 +45,6 @@ function Workspace({role}){
 function NotFound(){const {user}=useAuth();return <div className="session-screen"><h1>Page not found</h1><p>This page doesn’t exist.</p><NavLink className="btn primary" to={user?homeFor(user):'/'}>{user?'Back to my workspace':'Back to home'}</NavLink></div>}
 function AppRoutes(){
   useEffect(()=>{document.documentElement.dataset.theme='light'},[]);
-  return <Routes><Route path="/" element={<Landing/>}/><Route path="/login" element={<DesignationPicker/>}/>{Object.keys(roles).map(role=><Route key={role} path={"/login/"+role} element={<Login key={role} role={role}/>}/>)}<Route path="/login/*" element={<Navigate to="/login" replace/>}/><Route element={<RequireAuth/>}><Route path="/access-denied" element={<AccessDenied/>}/>{Object.entries(roles).map(([role,value])=><Route key={role} path={`/${role}`} element={<RequireRole role={role}/>}><Route index element={<Navigate to={firstPage(role)} replace/>}/>{[...value.nav,...(value.extraPages||[]).map(id=>[id])].map(([id])=><Route key={id} path={id} element={<RolePage key={`${role}-${id}`} id={id}/>}/>)}<Route path="*" element={<NotFound/>}/></Route>)}</Route><Route path="*" element={<NotFound/>}/></Routes>
+  return <Routes><Route path="/" element={<Landing/>}/><Route path="/login" element={<Login/>}/><Route path="/login/*" element={<Navigate to="/login" replace/>}/><Route element={<RequireAuth/>}><Route path="/access-denied" element={<AccessDenied/>}/>{Object.entries(roles).map(([role,value])=><Route key={role} path={`/${role}`} element={<RequireRole role={role}/>}><Route index element={<Navigate to={firstPage(role)} replace/>}/>{[...value.nav,...(value.extraPages||[]).map(id=>[id])].map(([id])=><Route key={id} path={id} element={<RolePage key={`${role}-${id}`} id={id}/>}/>)}<Route path="*" element={<NotFound/>}/></Route>)}</Route><Route path="*" element={<NotFound/>}/></Routes>
 }
 export default function App(){return <AuthProvider><AppRoutes/></AuthProvider>}
