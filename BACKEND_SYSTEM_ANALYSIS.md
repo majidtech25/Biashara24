@@ -30,7 +30,7 @@ Order creation/addition uses server menu prices, line price/tax snapshots, idemp
 
 | Business area | Implemented | Partial or absent |
 |---|---|---|
-| Accounts and permissions | Six roles; designation-aware login; server authorization; waiter ownership; staff creation/update; deactivation; token invalidation on account changes/logout | Kitchen-specific account/department permissions; self-service password change/recovery; rate limiting; session/device management; shift attendance |
+| Accounts and permissions | Six roles; one sign-in page that opens the workspace for the account's role; server authorization; waiter ownership; staff creation/update; deactivation; token invalidation on account changes/logout | Kitchen-specific account/department permissions; self-service password change/recovery; rate limiting; session/device management; shift attendance |
 | Menu | Create/edit food, price, category, department, availability, description, URL/uploaded image; live menu excludes inactive food/categories/departments | Modifier groups, variants, ingredient/allergen data, recipe links, scheduled menus, automatic sold-out rules; category/department edit/deactivate APIs |
 | Table service | Add tables; activate/deactivate; one active bill per table; owner visibility; reservation released on cancellation/confirmed settlement | Transfers between tables/waiters, merge/split bills, guest counts, floor sections, reservations; takeaway/delivery order types |
 | Ordering | Multiple lines; quantities; notes; server totals; immutable submission batches; price/tax snapshots; safe create/add retries; FIFO listing; pagination | Hold/fire courses, per-item modifiers, line preparation state, served state, stock reservation/consumption |

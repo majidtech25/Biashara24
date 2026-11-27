@@ -39,11 +39,6 @@ a{color:inherit;text-decoration:none}button,a,input,select{ -webkit-tap-highligh
   .sidebar .signed-in-user{display:none}
 }
 
-/* Employee designation selection */
-.designation-page{min-height:100vh;display:flex;flex-direction:column;background:radial-gradient(ellipse at 50% 22%,#eef2e5,transparent 65%),#f8f7f1}.designation-page>.public-nav,.designation-page>.public-footer{width:100%}.designation-main{width:100%;max-width:1190px;margin:auto;padding:40px 40px 50px;grid-column:auto}.designation-heading{text-align:center;margin-bottom:40px}.designation-heading h1{font-size:40px;letter-spacing:-1.6px;color:#173d2c;margin:16px 0 12px}.designation-heading p{font-size:15px;color:#73806b;margin:0}.designation-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px}.designation-card{grid-column:span 2;display:flex;flex-direction:column;align-items:flex-start;padding:28px;background:#fffef9;border:1px solid #dfe5d8;border-radius:12px;transition:transform .2s,border-color .2s,box-shadow .2s}.designation-card:nth-child(4){grid-column:2 / span 2}.designation-card:hover{border-color:#7ba16b;box-shadow:0 12px 25px #203c2510;transform:translateY(-3px)}.designation-icon{width:49px;height:49px;background:#e8efdf;color:#376c3f;border-radius:12px;display:grid;place-items:center;margin-bottom:23px}.designation-icon svg{width:25px;height:25px}.designation-card:nth-child(2) .designation-icon{background:#e5eee8;color:#2a6c53}.designation-card:nth-child(3) .designation-icon{background:#fbf0d8;color:#a97828}.designation-card:nth-child(4) .designation-icon{background:#edece0;color:#7a7749}.designation-card:nth-child(5) .designation-icon{background:#e7eef0;color:#487682}.designation-tag{font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:#85907a}.designation-card h2{font-size:21px;letter-spacing:-.6px;color:#173d2b;margin:10px 0}.designation-card>p{font-size:12px;line-height:1.8;color:#7b8774;margin:0 0 23px;max-width:260px}.designation-continue{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #e7ebdf;padding-top:17px;width:100%;margin-top:auto;font-size:11px;font-weight:600;color:#426c38}.designation-continue svg{width:16px;height:16px}.designation-help{display:flex;gap:12px;align-items:center;justify-content:center;margin-top:30px;color:#547746}.designation-help>svg{width:21px;height:21px;flex-shrink:0}.designation-help p{font-size:12px;line-height:1.8;margin:0}.designation-help span{color:#8a947f;font-size:11px}.designation-contact{font-size:11px;text-align:center;color:#909983;margin:22px 0 0}.designation-page>.public-footer{margin-top:auto}.designation-page .back-home{align-self:auto}
-@media(max-width:850px){.designation-main{padding:30px 6% 40px}.designation-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.designation-card,.designation-card:nth-child(4){grid-column:auto}.designation-card:last-child{grid-column:1/-1}.designation-card{padding:23px}.designation-card h2{font-size:20px}}
-@media(max-width:500px){.designation-heading{margin-bottom:28px}.designation-heading h1{font-size:31px}.designation-heading p{font-size:13px;line-height:1.7}.designation-grid{grid-template-columns:1fr}.designation-card{padding:22px}.designation-card>p{max-width:none;margin-bottom:18px}.designation-icon{margin-bottom:17px}.designation-page .public-nav{gap:10px}.designation-page .back-home{font-size:10px}.designation-page .public-brand{font-size:23px}}
-@media(prefers-reduced-motion:reduce){.designation-card{transition:none}.designation-card:hover{transform:none}}
 
 /* Live operational forms */
 .live-form fieldset{border:0;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;align-items:end}
@@ -263,8 +258,6 @@ a{color:inherit;text-decoration:none}button,a,input,select{ -webkit-tap-highligh
  .app .waiter-order-dialog{padding:20px;border-radius:14px}
  .app .waiter-ordering .quantity-controls .btn,.app .waiter-workspace .btn,.app .waiter-workspace input,.app .waiter-workspace button{min-height:48px}
  .app .waiter-ordering .quantity-controls .btn{min-width:48px}
- .designation-heading h1{font-size:32px;line-height:1.2;margin:12px 0}
- .designation-card h2{font-size:19px}
  .login-form-wrap{max-width:380px;padding:28px 0}
  .login-form-wrap h2{font-size:26px;margin:10px 0}
  .login-icon{width:42px;height:42px;margin-bottom:18px}
@@ -289,20 +282,9 @@ a{color:inherit;text-decoration:none}button,a,input,select{ -webkit-tap-highligh
  .app .waiter-ordering .order-context{padding:12px}
  .app .waiter-ordering .menu-tile{padding:12px}
  .app .waiter-order-dialog{padding:16px}
- .designation-heading h1{font-size:28px}
  .login-form-wrap h2{font-size:24px}
 }
 
-/* Role picker: cards rise in one after another, and the icon lifts on hover. */
-@keyframes designation-rise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
-.designation-card{animation:designation-rise .55s cubic-bezier(.2,.7,.2,1) both}
-.designation-card:nth-child(1){animation-delay:.05s}.designation-card:nth-child(2){animation-delay:.12s}.designation-card:nth-child(3){animation-delay:.19s}
-.designation-card:nth-child(4){animation-delay:.26s}.designation-card:nth-child(5){animation-delay:.33s}.designation-card:nth-child(6){animation-delay:.40s}.designation-card:nth-child(7){animation-delay:.47s}
-.designation-icon{transition:transform .25s cubic-bezier(.2,.7,.2,1)}
-.designation-card:hover .designation-icon,.designation-card:focus-visible .designation-icon{transform:translateY(-2px) rotate(-6deg) scale(1.08)}
-.designation-continue svg{transition:transform .2s}
-.designation-card:hover .designation-continue svg,.designation-card:focus-visible .designation-continue svg{transform:translateX(4px)}
-@media(prefers-reduced-motion:reduce){.designation-card{animation:none}.designation-icon,.designation-continue svg{transition:none}.designation-card:hover .designation-icon,.designation-card:hover .designation-continue svg{transform:none}}
 
 /* Order pipeline as horizontal lanes: one row per stage, tickets side by side. */
 .pipeline-rows.operations-pipeline,.pipeline-rows.ticket-board{display:flex;flex-direction:column;gap:12px}
@@ -326,7 +308,3 @@ a{color:inherit;text-decoration:none}button,a,input,select{ -webkit-tap-highligh
 @media(max-width:900px){.wash-pos{grid-template-columns:1fr 1fr}.wash-pos-submit{grid-column:1 / -1}}
 @media(max-width:500px){.wash-pos{grid-template-columns:1fr}}
 
-/* Six accounts since the kitchen account was removed: two even rows of three (two columns on tablets). */
-.designation-card:nth-child(4){grid-column:span 2}
-@media(max-width:850px){.designation-card:nth-child(4){grid-column:auto}.designation-card:last-child{grid-column:auto}}
-@media(max-width:500px){.designation-card:last-child{grid-column:auto}}

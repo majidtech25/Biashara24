@@ -51,9 +51,9 @@ export function AuthProvider({children}){
       return()=>clearTimeout(timer);
     }catch{clear()}
   },[status,user,clear]);
-  const login=async(username,password,role)=>{
+  const login=async(username,password)=>{
     const requestVersion=++version.current;
-    const result=await http.post('/auth/login',{username:username.trim().toLowerCase(),password,role});
+    const result=await http.post('/auth/login',{username:username.trim().toLowerCase(),password});
     if(requestVersion!==version.current)return;
     if(!result.access_token)throw new Error('The server did not return a valid session.');
     localStorage.setItem('b360_token',result.access_token);
@@ -61,7 +61,6 @@ export function AuthProvider({children}){
       const account=await http.get('/auth/me');
       if(requestVersion!==version.current)return;
       if(!account.active)throw new Error('This account is inactive. Contact your administrator.');
-      if(account.role!==role)throw new Error('This account does not match the selected designation. Choose your assigned role and sign in again.');
       setUser(account);setStatus('authenticated');setError('');
     }catch(err){if(requestVersion===version.current)clear();throw err}
   };
